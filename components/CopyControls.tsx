@@ -40,9 +40,9 @@ const CopyControls: React.FC<CopyControlsProps> = ({ job, totalWords }) => {
   if (!job.hook) return null;
 
   return (
-    <div className="my-6 text-center">
-        <p className="text-gray-400 mb-3">Total Words: {totalWords}</p>
-        <div className="flex justify-center items-center gap-4">
+    <div className="my-6 border-y border-gray-800 py-4 flex justify-between items-center">
+        <p className="text-sm text-gray-400">Total Words: <span className="font-bold text-gray-200">{totalWords}</span></p>
+        <div className="flex items-center gap-2">
             <Button onClick={() => handleCopy('full')} variant="primary" disabled={copyState !== ''}>
                 {copyState === 'full' ? 'Copied!' : 'Copy Full Script'}
             </Button>

@@ -17,6 +17,10 @@ const PasswordProtection: React.FC = () => {
     setIsLoading(true);
 
     try {
+      // Explicitly set persistence to 'local' to remember the user across browser sessions.
+      // This ensures the user doesn't have to log in every time they visit.
+      await firebaseAuth.setPersistence(auth, firebaseAuth.browserLocalPersistence);
+
       if (isLogin) {
         // FIX: Use signInWithEmailAndPassword from the firebaseAuth namespace.
         await firebaseAuth.signInWithEmailAndPassword(auth, email, password);

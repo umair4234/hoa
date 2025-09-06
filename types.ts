@@ -18,10 +18,10 @@ export enum GenerationStatus {
   DONE,
 }
 
-// New types for Automation and Library
-export type AppView = 'MANUAL' | 'AUTOMATION' | 'LIBRARY';
+// New types for Library
+export type AppView = 'WORKSPACE' | 'LIBRARY';
 
-export type AutomationJobStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+export type JobStatus = 'WRITING' | 'PAUSED' | 'DONE' | 'FAILED';
 
 export type LibraryStatus = 'AVAILABLE' | 'ARCHIVED';
 
@@ -30,37 +30,31 @@ export interface TitleDescriptionPackage {
   title: string;
   description: string;
   hashtags: string[];
-  status: 'Unused' | 'Used';
-}
-
-export interface ScriptJob {
-  id: string;
-  source: 'MANUAL' | 'AUTOMATION';
-  // Inputs
-  title: string;
-  concept: string;
-  duration: number;
-  // Status & Metadata
-  status: AutomationJobStatus;
-  createdAt: number;
-  error?: string;
-  libraryStatus?: LibraryStatus;
-  // Generated Content
-  rawOutlineText: string;
-  refinedTitle: string;
-  outlines: ChapterOutline[];
-  hook: string;
-  chaptersContent: string[];
-  thumbnailIdeas?: ThumbnailIdeas;
-  thumbnailImageUrls?: string[];
-  titleDescriptionPackages?: TitleDescriptionPackage[];
-  // Progress Tracking
-  currentTask?: string;
-  wordsWritten?: number;
-  totalWords?: number;
+  status: 'Used' | 'Unused';
 }
 
 export interface ThumbnailIdeas {
   image_generation_prompt: string;
   text_on_thumbnail: string;
+}
+
+export interface ScriptJob {
+  id: string;
+  source: 'MANUAL';
+  title: string;
+  concept: string;
+  duration: number;
+  status: JobStatus;
+  createdAt: number;
+  error?: string;
+  rawOutlineText: string;
+  refinedTitle: string;
+  outlines: ChapterOutline[];
+  hook: string;
+  chaptersContent: string[];
+  currentTask?: string;
+  libraryStatus: LibraryStatus;
+  thumbnailIdeas?: ThumbnailIdeas;
+  thumbnailImageUrls?: string[];
+  titleDescriptionPackages?: TitleDescriptionPackage[];
 }

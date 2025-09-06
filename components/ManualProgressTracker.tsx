@@ -35,8 +35,7 @@ const ManualProgressTracker: React.FC<ManualProgressTrackerProps> = ({ outlines,
   if (steps.length === 0) return null;
 
   return (
-    <div className="w-full mb-8">
-      <h3 className="text-lg font-semibold text-gray-300 mb-4 text-center">Generation Progress</h3>
+    <div className="w-full">
       <div className="flex items-center">
         {steps.map((step, index) => {
           const isCompleted = index < currentStepIndex;
@@ -49,7 +48,7 @@ const ManualProgressTracker: React.FC<ManualProgressTrackerProps> = ({ outlines,
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
                     isCompleted ? 'bg-indigo-600 border-indigo-500' :
-                    isInProgress ? 'bg-yellow-500 border-yellow-400 animate-pulse' :
+                    isInProgress ? 'bg-green-500 border-green-400 animate-pulse' :
                     'bg-gray-700 border-gray-600'
                   }`}
                 >
@@ -63,7 +62,7 @@ const ManualProgressTracker: React.FC<ManualProgressTrackerProps> = ({ outlines,
                 </div>
                 <p className={`mt-2 text-xs text-center font-medium ${
                     isCompleted ? 'text-indigo-300' :
-                    isInProgress ? 'text-yellow-300' :
+                    isInProgress ? 'text-green-300' :
                     'text-gray-500'
                 }`}>
                   {step}
