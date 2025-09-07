@@ -1,4 +1,4 @@
-import { Modality, Type } from "@google/genai";
+import { Modality, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { ChapterOutline, ThumbnailIdeas, TitleDescriptionPackage } from "../types";
 import { OUTLINES_PROMPT_TEMPLATE, HOOK_PROMPT_TEMPLATE, CHAPTER_BATCH_PROMPT_TEMPLATE, THUMBNAIL_IDEAS_PROMPT_TEMPLATE, TITLES_DESCRIPTIONS_PROMPT_TEMPLATE } from "../constants";
 import { callGeminiApi, callImagenApi } from "./apiService";
@@ -176,6 +176,10 @@ export const generateThumbnailImage = async (
       fullPrompt = prompt;
     }
 
+    if (!baseImage) {
+      fullPrompt = `${fullPrompt} The image must be in a 16:9 aspect ratio, with a resolution of 1280x720 pixels.`;
+    }
+
     const parts: any[] = [];
     if (baseImage) {
       parts.push(fileToGenerativePart(baseImage));
@@ -184,9 +188,27 @@ export const generateThumbnailImage = async (
 
     const response = await callGeminiApi({
       model: 'gemini-2.5-flash-image-preview',
-      contents: { parts }, // FIX: The payload should be an object, not an array of objects.
+      contents: { parts },
       config: {
         responseModalities: [Modality.IMAGE, Modality.TEXT],
+        safetySettings: [
+          {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+          },
+        ],
       },
     });
 

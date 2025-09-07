@@ -1,4 +1,5 @@
 
+
 export const OUTLINES_PROMPT_TEMPLATE = (title: string, concept: string, duration: number) => `
 I want you to act as a Master Storyteller and YouTube Script Architect. Your specialty is creating gripping, first-person revenge stories with deep emotional stakes. Your mission is to take a simple video idea and structure it into a compelling chapter-by-chapter outline for a long-form video.
 
@@ -85,116 +86,86 @@ ${outlinesText}
 ---
 `;
 
-export const CHAPTER_BATCH_PROMPT_TEMPLATE = (fullOutlinesText: string, chaptersTo_write: { id: number; title: string; wordCount: number; concept: string }[]) => `
+// FIX: Added missing prompt templates
+export const CHAPTER_BATCH_PROMPT_TEMPLATE = (fullOutlinesText: string, chapters: { id: number; title: string; wordCount: number; concept: string }[]) => `
+I want you to act as a Master Storyteller and YouTube Scriptwriter. Your specialty is writing gripping, first-person revenge stories with deep emotional stakes.
+
+Your mission is to write the full script content for a batch of chapters, based on the provided story outline and chapter details.
+
 **CRITICAL RULES FOR WRITING:**
 
-1.  **EXTREMELY SIMPLE ENGLISH:** This is the most important rule. Write using EXTREMELY simple English, suitable for a 5th grader. Use common words. Focus on clear, direct storytelling. Do not use complex vocabulary or long paragraphs.
+1.  **FIRST-PERSON POV:** Write the entire script from the hero's first-person ("I", "me", "my") point of view.
+2.  **EXTREMELY SIMPLE ENGLISH:** The language must be incredibly simple. Imagine you are talking to a 10-year-old. Use common words and easy-to-understand ideas. This is the most important rule.
+3.  **WRITING STYLE - SENTENCE FLOW:** You MUST use a mix of short and medium-length sentences. Do not write only short, choppy sentences. The writing should feel natural and powerful, not robotic.
+4.  **STICK TO THE CONCEPT:** Your writing for each chapter MUST strictly adhere to the provided concept and stay within the target word count.
+5.  **SHOW, DON'T TELL:** Instead of saying "I was angry," describe the feeling: "My fists clenched so hard my knuckles turned white, and a hot rage boiled up inside my chest."
+6.  **NO EXTRA TEXT:** Do NOT add any chapter titles, word count information, or any other text that is not part of the story's narrative itself. Only provide the raw script content for the chapters.
+7.  **OUTPUT FORMAT:** You MUST separate the content of each chapter with exactly this delimiter: \`---CHAPTER-BREAK---\`. Do not use it at the beginning or end, only between chapters.
 
-2.  **WRITING STYLE - SENTENCE FLOW:** You MUST use a mix of short and medium-length sentences. Do not write only short, choppy sentences. The writing should feel natural and easy to read.
-    *   **BAD STYLE (Too choppy):** "I had a big dream. I worked very hard for it. For many years, I worked day and night. I saved all my money. I wanted to buy a perfect house. Not just any house."
-    *   **GOOD STYLE (Natural flow):** "I had a big dream that I worked incredibly hard for over many years. Working day and night, I saved all my money because I wanted to buy the perfect house. It couldn't be just any house, though; it had to be a special home for my family."
-
-**TASK:**
-
-Excellent. Please write the full text for the following chapters based on the provided story outline.
-
-**IMPORTANT FORMATTING RULE:** After you finish writing the complete text for one chapter, you MUST insert the exact delimiter "---CHAPTER-BREAK---" on a new line. Then, begin writing the next chapter. Do NOT add this delimiter after the final chapter in the list.
-
-**WRITING INSTRUCTION:** Start writing the chapter text directly. Do NOT repeat the chapter title (e.g., "Chapter 1: The Beginning") in your response. Just write the story content itself.
-
-Here is the full story outline for context:
+First, here is the full story outline for context:
 ---
 ${fullOutlinesText}
 ---
 
-Now, please write the following chapters in order:
-${chaptersTo_write.map(c => `
-- Chapter ${c.id}: ${c.title}
-  Word Count: Approximately ${c.wordCount} words
-  Concept: ${c.concept}
+Now, write the full script content for the following chapters. Adhere strictly to their concepts and word counts.
+
+${chapters.map(c => `
+Chapter ${c.id}: ${c.title}
+(Target Word Count: ${c.wordCount} words)
+Concept: ${c.concept}
 `).join('\n')}
+
+Remember, your response should be ONLY the script content for these chapters, separated by \`---CHAPTER-BREAK---\`.
 `;
 
 export const THUMBNAIL_IDEAS_PROMPT_TEMPLATE = (title: string, hook: string) => `
-You are an expert viral YouTube thumbnail designer and prompt engineer for the "first-person revenge story" genre. Your task is to generate a thumbnail concept based on the provided video title and hook. You must generate two things: a detailed, ready-to-use image generation prompt, and the punchy text to overlay on the thumbnail.
+I want you to act as a viral YouTube thumbnail designer and strategist. Your goal is to create compelling thumbnail ideas for a first-person revenge story video.
 
-**CRITICAL KNOWLEDGE BASE (DO NOT DEVIATE FROM THIS STYLE):**
-- **Emotional Intensity:** Thumbnails must feature exaggerated facial expressions – surprise, anger, shock, defiance. The goal is high drama.
-- **Key Characters:** The "Karen" (angry, pointing), the Protagonist (calm, defiant, smirking), and Police Officers (bewildered, shocked).
-- **The "Reveal" Element:** The image must hint at a secret identity or a shocking turn of events, primarily through the police officers' confused reactions.
-- **Composition:** A central group of 2-4 key characters with a suburban background. The protagonist should be the focal point, often looking at the viewer.
-- **Text Overlay Style:** Large, bold, all-caps, with a strong outline/drop shadow. The text must be a short, punchy phrase that encapsulates the core conflict or reveal.
+The output MUST be a JSON object that strictly follows this schema:
+{
+  "image_generation_prompt": "A detailed, ready-to-use image generation prompt for a cinematic thumbnail.",
+  "text_on_thumbnail": "The exact, punchy, all-caps text to overlay on the thumbnail."
+}
 
-**YOUR TASK:**
-Based on the video title and hook provided below, generate a thumbnail concept. Your response MUST be a JSON object with two keys: "image_generation_prompt" and "text_on_thumbnail".
+**RULES FOR CREATING THE IDEAS:**
 
-**1. Create the \`image_generation_prompt\`:**
-Synthesize information from the title/hook to create a detailed prompt. Follow this structure precisely:
-- **Scene Setting:** Start with "A highly cinematic, vibrant, and dramatic suburban street scene at midday."
-- **Main Antagonist (The "Karen"):** Describe an "enraged middle-aged woman" in a "brightly colored power suit," who is "aggressively pointing and yelling."
-- **Protagonist(s):** Describe the protagonist (e.g., "a well-dressed male, late 30s") who "stands calmly with a slight, knowing smirk," and is "looking directly at the viewer." Their emotional state should be "calm," "defiant," or "unfazed."
-- **Police Officers (Key "Reveal" Element):** Include "two uniformed US police officers" who are "looking utterly bewildered and confused, their eyes wide with surprise," as if reacting to a shocking revelation about the protagonist.
-- **Conditional Logic (Analyze the hook for keywords):**
-    - If you see "Framed," "arrested," "handcuffs": Ensure one officer is holding handcuffs.
-    - If you see "Lawyer," "DA," "Judge," "Undercover": Emphasize the police's shocked expressions and the protagonist's calm confidence.
-    - If you see "HOA," "property," "deed": Ensure the suburban house/lawn is clearly visible and the conflict might be over a property feature.
-    - If you see "wife" or "husband": Include a couple as protagonists.
-- **Lighting and Style:** End the prompt with: "The lighting is high-contrast, with clear shadows. The background features a well-maintained, classic American suburban house. Shot with a wide-angle lens for dramatic effect, ensuring 16:9 aspect ratio, hyperrealistic, detailed faces, cinematic lighting, 8k."
+1.  **Image Prompt:** The image generation prompt should be cinematic, high-contrast, and emotionally charged. Describe the scene, the lighting, the hero's expression, and the villain's action. It should be a prompt that an AI image generator like Midjourney or DALL-E can understand perfectly.
+2.  **Thumbnail Text:** The text should be VERY short (2-5 words), all-caps, and incredibly punchy. It should create curiosity and highlight the core conflict. Use simple, powerful words.
 
-**2. Create the \`text_on_thumbnail\`:**
-- Create a short, punchy, all-caps phrase (under 10 words) that captures the "reveal" moment.
-- Example formats: "SHE FRAMED ME. NOW I'M HER PROSECUTOR.", "YOU CALLED COPS ON A JUDGE?!", "SHE CALLED COPS. I CALLED MY LAWYER."
+Here is the context for the video:
 
-**VIDEO TITLE:**
----
-${title}
----
+**Video Title:** ${title}
 
-**VIDEO HOOK:**
----
-${hook}
----
+**Video Hook:** ${hook}
 
-Now, provide the JSON response.
+Now, generate the JSON object with the thumbnail ideas. Your response MUST only contain the JSON object and nothing else.
 `;
 
 export const TITLES_DESCRIPTIONS_PROMPT_TEMPLATE = (originalTitle: string, fullScript: string) => `
-You are an expert YouTube metadata strategist specializing in the "first-person revenge story" genre. Your task is to generate four complete "Title & Description Packages" based on the user's original title and the full video script provided.
+I want you to act as a YouTube SEO and click-through-rate optimization expert. Your task is to generate 3 alternative, highly clickable packages of titles, descriptions, and hashtags for a video, based on its original title and full script.
 
-**CRITICAL STYLE GUIDE (Based on top-performing videos):**
-- **Titles:** Must be under 100 characters. They should be catchy, create curiosity, and hint at a conflict with a surprising reveal or satisfying revenge. Use punchy, high-emotion language.
-- **Descriptions:** Must be 2-3 lines. They should hook the reader, summarize the core conflict and resolution, and ideally end with a question to drive engagement.
-- **Hashtags:** Provide 5 relevant hashtags, including a mix of broad and specific tags for the genre.
+The output MUST be a JSON array containing exactly 3 objects. Each object must strictly follow this schema:
+{
+  "title": "The video title, under 100 characters.",
+  "description": "A 2-3 line summary of the video's story.",
+  "hashtags": ["An array of 5 relevant hashtags, including #revenge and #storytime."]
+}
 
-**COMPETITOR TITLE EXAMPLES (Study these for style):**
-- "HOA Attacks my Wife - Until Her Military K9s Show Their Training!"
-- "Fake HOA Cop Smashed My Car - He DIDN'T Expect What Happened Next!"
-- "Fake HOA Cops Tried to Arrest My Wife - Delta Force Husband Broke Their Faces!"
-- "HOA Karen Called Cops When I Moved In - So I Legally Blocked Her Driveway..."
-- "Fake HOA Cops Slaps My Wife - Navy Seal Husband Broke Their Faces!"
-- "HOA Karen's Key Didn't Open My Home - She Dialed 911, I Called the Dispatcher Directly!"
-- "HOA Built a Full Beach on My Private Lake! While I Was In a Coma"
-- "Karen Tried To Mow My Tractor During Planting Season - So I Planned Her Car..."
-- "HOA Karen Called Cops Screaming 'He Stole My Car' - Not Knowing I'm An Undercover..."
+**RULES FOR GENERATION:**
 
-**YOUR TASK:**
-Based on the user's original title and the provided script, generate the metadata. Your response MUST be a JSON array containing exactly four objects.
+1.  **Titles:** Titles should be emotionally charged and create immense curiosity. They often follow patterns like "[Villain's Action] So I [Hero's Epic Revenge]". Keep them under 100 characters.
+2.  **Descriptions:** Descriptions should be a short, compelling summary of the story's arc. Hook the reader and make them want to watch the whole thing.
+3.  **Hashtags:** Include a mix of broad and specific hashtags. They MUST include #revenge and #storytime.
 
-**JSON OUTPUT RULES:**
-1.  The first object in the array MUST use the user's original title EXACTLY as provided.
-2.  The next three objects must be new, creative title variations based on the script and the style guide.
-3.  Each object must have a unique, engaging description and a list of 5 hashtags.
-4.  Do not add any text, explanations, or greetings outside of the JSON array.
+Here is the context:
 
-**USER'S ORIGINAL VIDEO TITLE:**
----
+**Original Video Title:**
 ${originalTitle}
----
 
-**FULL VIDEO SCRIPT (for context):**
+**Full Video Script:**
 ---
 ${fullScript}
 ---
 
-Now, provide the JSON array.
+Now, generate the JSON array with the 3 title/description/hashtag packages. Your response MUST only contain the JSON array and nothing else.
 `;
