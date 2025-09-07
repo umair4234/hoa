@@ -31,6 +31,7 @@ export interface TitleDescriptionPackage {
   description: string;
   hashtags: string[];
   status: 'Used' | 'Unused';
+  usedAt?: number;
 }
 
 export interface ThumbnailIdeas {

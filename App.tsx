@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Button from './components/Button';
 import ApiKeyManager from './components/ApiKeyManager';
@@ -119,6 +120,7 @@ const App: React.FC = () => {
   const [isLoadingThumbnailIdeas, setIsLoadingThumbnailIdeas] = useState(false);
   const [isLoadingThumbnailImage, setIsLoadingThumbnailImage] = useState(false);
   const [isTitleDescLoading, setIsTitleDescLoading] = useState(false);
+  const [isTitleDescModalOpen, setIsTitleDescModalOpen] = useState(false);
 
   // Load data from localStorage on initial mount
   useEffect(() => {
@@ -404,6 +406,7 @@ const App: React.FC = () => {
       const fullScript = `${selectedJob.hook}\n\n${selectedJob.chaptersContent.join('\n\n')}`;
       const packages = await generateTitlesAndDescriptions(selectedJob.title, fullScript);
       updateJob(selectedJob.id, { titleDescriptionPackages: packages });
+      setIsTitleDescModalOpen(true); // Open modal after generation
     } catch (e) {
       console.error(e);
       alert('Failed to generate titles and descriptions.');
@@ -411,6 +414,14 @@ const App: React.FC = () => {
       setIsTitleDescLoading(false);
     }
   }, [selectedJob, updateJob]);
+
+  const handleOpenTitlesModal = () => {
+    if (selectedJob?.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0) {
+      setIsTitleDescModalOpen(true);
+    } else {
+      handleGenerateTitles();
+    }
+  };
 
 
   // --- RENDER LOGIC ---
@@ -550,18 +561,10 @@ const App: React.FC = () => {
                     />
                      <div className="flex gap-4 mt-4">
                         <Button onClick={handleOpenThumbnailModal}>Thumbnail Workshop</Button>
-                        <Button onClick={handleGenerateTitles} disabled={isTitleDescLoading}>
-                            {isTitleDescLoading ? 'Generating...' : (selectedJob.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0) ? 'Regenerate Titles & Descriptions' : 'Generate Titles & Descriptions'}
+                        <Button onClick={handleOpenTitlesModal} disabled={isTitleDescLoading}>
+                            {isTitleDescLoading ? 'Generating...' : (selectedJob.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0) ? 'View Titles & Descriptions' : 'Generate Titles & Descriptions'}
                         </Button>
                     </div>
-                    {selectedJob.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0 && (
-                      <TitleDescriptionManager 
-                        packages={selectedJob.titleDescriptionPackages} 
-                        onUpdatePackages={(updatedPackages) => {
-                          updateJob(selectedJob!.id, { titleDescriptionPackages: updatedPackages });
-                        }}
-                      />
-                    )}
                 </div>
              )}
           </>
@@ -628,6 +631,18 @@ const App: React.FC = () => {
           onReanalyze={handleGenerateThumbnailIdeas}
           onGenerateImage={handleGenerateThumbnailImage}
           thumbnailImageUrls={selectedJob.thumbnailImageUrls || null}
+        />
+      )}
+      {selectedJob && (
+        <TitleDescriptionManager
+            isOpen={isTitleDescModalOpen}
+            onClose={() => setIsTitleDescModalOpen(false)}
+            packages={selectedJob.titleDescriptionPackages || []}
+            onUpdatePackages={(updatedPackages) => {
+                updateJob(selectedJob!.id, { titleDescriptionPackages: updatedPackages });
+            }}
+            onRegenerate={handleGenerateTitles}
+            isLoading={isTitleDescLoading}
         />
       )}
 
