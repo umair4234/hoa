@@ -5,9 +5,10 @@ import { ScriptJob } from '../types';
 interface CopyControlsProps {
   job: Partial<ScriptJob>;
   totalWords: number;
+  onSplitScript: () => void;
 }
 
-const CopyControls: React.FC<CopyControlsProps> = ({ job, totalWords }) => {
+const CopyControls: React.FC<CopyControlsProps> = ({ job, totalWords, onSplitScript }) => {
   const [copyState, setCopyState] = useState<'full' | 'hook' | 'rest' | ''>('');
 
   const handleCopy = (type: 'full' | 'hook' | 'rest') => {
@@ -52,6 +53,7 @@ const CopyControls: React.FC<CopyControlsProps> = ({ job, totalWords }) => {
             <Button onClick={() => handleCopy('rest')} variant="secondary" disabled={copyState !== ''}>
                 {copyState === 'rest' ? 'Copied!' : 'Copy Ch. 2 Onwards'}
             </Button>
+            <Button onClick={onSplitScript} variant="secondary">Split Script</Button>
         </div>
     </div>
   );

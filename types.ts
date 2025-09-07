@@ -19,7 +19,7 @@ export enum GenerationStatus {
 }
 
 // New types for Library
-export type AppView = 'WORKSPACE' | 'LIBRARY';
+export type AppView = 'WORKSPACE' | 'LIBRARY' | 'SPLITTER';
 
 export type JobStatus = 'WRITING' | 'PAUSED' | 'DONE' | 'FAILED';
 
@@ -36,6 +36,11 @@ export interface TitleDescriptionPackage {
 export interface ThumbnailIdeas {
   image_generation_prompt: string;
   text_on_thumbnail: string;
+}
+
+export interface SplitSection {
+  content: string;
+  copied: boolean;
 }
 
 export interface ScriptJob {
@@ -57,4 +62,8 @@ export interface ScriptJob {
   thumbnailIdeas?: ThumbnailIdeas;
   thumbnailImageUrls?: string[];
   titleDescriptionPackages?: TitleDescriptionPackage[];
+  // New properties for Splitter
+  splitterText?: string;
+  splitSections?: SplitSection[];
+  maxCharsPerSection?: number;
 }

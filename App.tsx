@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Button from './components/Button';
 import ApiKeyManager from './components/ApiKeyManager';
@@ -11,6 +12,9 @@ import GenerationControls from './components/GenerationControls';
 import PasswordProtection from './components/PasswordProtection';
 import ThumbnailIdeasModal from './components/ThumbnailIdeasModal';
 import Loader from './components/Loader';
+import ScriptSplitter from './components/ScriptSplitter';
+import TitleDescriptionManager from './components/TitleDescriptionManager';
+
 
 import { 
   generateOutlines, 
@@ -344,6 +348,19 @@ const App: React.FC = () => {
   }, []);
 
   // --- POST-GENERATION HANDLERS ---
+  const handleSplitScript = () => {
+    const job = selectedJob;
+    if (!job) return;
+  
+    // Pre-populate splitter text if it's the first time
+    if (!job.splitterText && job.chaptersContent.length > 1) {
+      const textToSplit = job.chaptersContent.slice(1).join('\n\n');
+      updateJob(job.id, { splitterText: textToSplit });
+    }
+    
+    setView('SPLITTER');
+  };
+
   const handleGenerateThumbnailIdeas = useCallback(async () => {
     if (!selectedJob || !selectedJob.hook) return;
     setIsLoadingThumbnailIdeas(true);
@@ -526,13 +543,25 @@ const App: React.FC = () => {
             
              {selectedJob.status === 'DONE' && (
                 <div className="p-4 border-t border-gray-800 bg-gray-900">
-                    <CopyControls job={selectedJob} totalWords={totalWords} />
+                    <CopyControls 
+                      job={selectedJob} 
+                      totalWords={totalWords}
+                      onSplitScript={handleSplitScript}
+                    />
                      <div className="flex gap-4 mt-4">
                         <Button onClick={handleOpenThumbnailModal}>Thumbnail Workshop</Button>
                         <Button onClick={handleGenerateTitles} disabled={isTitleDescLoading}>
-                            {isTitleDescLoading ? 'Generating...' : 'Generate Titles & Descriptions'}
+                            {isTitleDescLoading ? 'Generating...' : (selectedJob.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0) ? 'Regenerate Titles & Descriptions' : 'Generate Titles & Descriptions'}
                         </Button>
                     </div>
+                    {selectedJob.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0 && (
+                      <TitleDescriptionManager 
+                        packages={selectedJob.titleDescriptionPackages} 
+                        onUpdatePackages={(updatedPackages) => {
+                          updateJob(selectedJob!.id, { titleDescriptionPackages: updatedPackages });
+                        }}
+                      />
+                    )}
                 </div>
              )}
           </>
@@ -627,7 +656,15 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        {view === 'WORKSPACE' ? renderWorkspaceView() : renderLibraryView()}
+        {view === 'WORKSPACE' && renderWorkspaceView()}
+        {view === 'LIBRARY' && renderLibraryView()}
+        {view === 'SPLITTER' && selectedJob && (
+          <ScriptSplitter
+            job={selectedJob}
+            onUpdateJob={(jobId, updates) => updateJob(jobId, updates)}
+            onBack={() => setView('WORKSPACE')}
+          />
+        )}
       </main>
     </div>
   );
