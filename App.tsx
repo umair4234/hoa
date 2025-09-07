@@ -2,6 +2,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Button from './components/Button';
 import ApiKeyManager from './components/ApiKeyManager';
@@ -236,14 +237,28 @@ const App: React.FC = () => {
     runFullGeneration(newJob.id);
   };
   
+  const handleResumeGeneration = async (jobId: string) => {
+    const jobToResume = jobsRef.current.find(j => j.id === jobId);
+    if (!jobToResume) {
+      console.error("Could not find job to resume");
+      return;
+    }
+    setSelectedJobId(jobId);
+    runFullGeneration(jobId);
+  };
+
   const runFullGeneration = async (jobId: string) => {
     setGenerationStatus(GenerationStatus.RUNNING);
     generationStatusRef.current = GenerationStatus.RUNNING;
     
-    // Helper to find the current job state from the ref
     const getCurrentJobState = () => jobsRef.current.find(j => j.id === jobId);
 
     try {
+        let initialJobState = getCurrentJobState();
+        if (!initialJobState) throw new Error("Job not found.");
+
+        updateJob(jobId, { status: 'WRITING', error: undefined, currentTask: 'Starting...' });
+
         const checkPause = async () => {
             while (generationStatusRef.current === GenerationStatus.PAUSED) {
                 updateJob(jobId, { status: 'PAUSED', currentTask: 'Paused' });
@@ -255,53 +270,75 @@ const App: React.FC = () => {
         
         let currentJobState = getCurrentJobState();
         if (!currentJobState) throw new Error("Job not found.");
-
         const { title, concept, duration } = currentJobState;
         
-        // Step 1: Generate Outlines
-        setCurrentTask('Generating outlines...');
-        updateJob(jobId, { currentTask: 'Generating outlines...' });
-        const rawOutlineText = await generateOutlines(title, concept, duration);
-        const { refinedTitle, outlines } = parseOutlines(rawOutlineText);
+        // Step 1: Generate Outlines (if needed)
+        if (!currentJobState.rawOutlineText) {
+          setCurrentTask('Generating outlines...');
+          updateJob(jobId, { currentTask: 'Generating outlines...' });
+          const rawOutlineText = await generateOutlines(title, concept, duration);
+          const { refinedTitle, outlines } = parseOutlines(rawOutlineText);
+          updateJob(jobId, { rawOutlineText, refinedTitle, outlines });
+        }
+        
+        currentJobState = getCurrentJobState();
+        if (!currentJobState) throw new Error("Job not found.");
+        const { rawOutlineText, outlines } = currentJobState;
+
         const totalWordsToGenerate = outlines.reduce((sum, ch) => sum + ch.wordCount, 0) + 150;
-        setProgress({ wordsWritten: 0, totalWords: totalWordsToGenerate });
-        updateJob(jobId, { rawOutlineText, refinedTitle, outlines });
+        const alreadyWrittenWords = countWords(currentJobState.hook || '') + currentJobState.chaptersContent.reduce((sum, ch) => sum + countWords(ch), 0);
+        setProgress({ wordsWritten: alreadyWrittenWords, totalWords: totalWordsToGenerate });
         
         await checkPause();
         
-        // Step 2: Generate Hook
-        setCurrentTask('Generating hook...');
-        updateJob(jobId, { currentTask: 'Generating hook...' });
-        const hook = await generateHook(rawOutlineText);
-        setProgress(p => ({ ...p, wordsWritten: p.wordsWritten + 150 }));
-        updateJob(jobId, { hook });
+        // Step 2: Generate Hook (if needed)
+        if (!currentJobState.hook) {
+          setCurrentTask('Generating hook...');
+          updateJob(jobId, { currentTask: 'Generating hook...' });
+          const hook = await generateHook(rawOutlineText);
+          setProgress(p => ({ ...p, wordsWritten: p.wordsWritten + countWords(hook) }));
+          updateJob(jobId, { hook });
+        }
 
         await checkPause();
+        currentJobState = getCurrentJobState();
+        if (!currentJobState) throw new Error("Job not found.");
 
-        // Step 3: Generate Chapters in batches
-        const chapterBatches: ChapterOutline[][] = [];
-        const chaptersToWrite = outlines.filter(o => o.id > 0);
-        for (let i = 0; i < chaptersToWrite.length; i += 3) {
-            chapterBatches.push(chaptersToWrite.slice(i, i + 3));
-        }
+        // Step 3: Generate Chapters
+        const chaptersAlreadyWrittenCount = currentJobState.chaptersContent.length;
+        const allChaptersFromOutline = outlines.filter(o => o.id > 0);
+        const chaptersToWrite = allChaptersFromOutline.slice(chaptersAlreadyWrittenCount);
 
-        let tempChapterContent: string[] = [];
-        for (const batch of chapterBatches) {
-            await checkPause();
-            const chapterIds = batch.map(c => c.id).join(', ');
-            const task = `Writing chapters: ${chapterIds}`;
-            setCurrentTask(task);
-            updateJob(jobId, { currentTask: task });
+        if (chaptersToWrite.length > 0) {
+            const chapterBatches: ChapterOutline[][] = [];
+            for (let i = 0; i < chaptersToWrite.length; i += 3) {
+                chapterBatches.push(chaptersToWrite.slice(i, i + 3));
+            }
 
-            const generatedContents = await generateChapterBatch(rawOutlineText, batch);
-            tempChapterContent = [...tempChapterContent, ...generatedContents];
+            let tempChapterContent: string[] = [...currentJobState.chaptersContent];
+            for (const batch of chapterBatches) {
+                await checkPause();
+                const chapterIds = batch.map(c => c.id).join(', ');
+                const task = `Writing chapters: ${chapterIds}`;
+                setCurrentTask(task);
+                updateJob(jobId, { currentTask: task });
 
-            const wordsInBatch = batch.reduce((sum, ch) => sum + ch.wordCount, 0);
-            setProgress(p => ({ ...p, wordsWritten: p.wordsWritten + wordsInBatch }));
+                const generatedContents = await generateChapterBatch(rawOutlineText, batch);
+                tempChapterContent = [...tempChapterContent, ...generatedContents];
 
-            updateJob(jobId, { chaptersContent: [...tempChapterContent]});
+                const wordsInBatch = generatedContents.reduce((sum, c) => sum + countWords(c), 0);
+                setProgress(p => ({ ...p, wordsWritten: p.wordsWritten + wordsInBatch }));
+
+                updateJob(jobId, { chaptersContent: [...tempChapterContent]});
+            }
         }
         
+        currentJobState = getCurrentJobState();
+        if (!currentJobState) throw new Error("Job not found.");
+        if (currentJobState.chaptersContent.length < allChaptersFromOutline.length) {
+            throw new Error("Generation finished but not all chapters were written. Please resume again.");
+        }
+
         updateJob(jobId, { status: 'DONE', currentTask: 'Completed!' });
         setGenerationStatus(GenerationStatus.DONE);
         generationStatusRef.current = GenerationStatus.DONE;
@@ -558,21 +595,38 @@ const App: React.FC = () => {
                 )}
             </div>
             
-             {selectedJob.status === 'DONE' && (
-                <div className="p-4 border-t border-gray-800 bg-gray-900">
-                    <CopyControls 
-                      job={selectedJob} 
-                      totalWords={totalWords}
-                      onSplitScript={handleSplitScript}
-                    />
-                     <div className="flex gap-4 mt-4">
-                        <Button onClick={handleOpenThumbnailModal}>Thumbnail Workshop</Button>
-                        <Button onClick={handleOpenTitlesModal} disabled={isTitleDescLoading}>
-                            {isTitleDescLoading ? 'Generating...' : (selectedJob.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0) ? 'View Titles & Descriptions' : 'Generate Titles & Descriptions'}
-                        </Button>
-                    </div>
-                </div>
-             )}
+            {selectedJob.status === 'DONE' && (
+              <div className="p-4 border-t border-gray-800 bg-gray-900">
+                  <CopyControls 
+                    job={selectedJob} 
+                    totalWords={totalWords}
+                    onSplitScript={handleSplitScript}
+                  />
+                    <div className="flex gap-4 mt-4">
+                      <Button onClick={handleOpenThumbnailModal}>Thumbnail Workshop</Button>
+                      <Button onClick={handleOpenTitlesModal} disabled={isTitleDescLoading}>
+                          {isTitleDescLoading ? 'Generating...' : (selectedJob.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0) ? 'View Titles & Descriptions' : 'Generate Titles & Descriptions'}
+                      </Button>
+                  </div>
+              </div>
+            )}
+
+            {selectedJob.status === 'FAILED' && (
+              <div className="p-4 border-t border-gray-800 bg-gray-900">
+                  <div className="bg-red-900/50 border border-red-700 text-red-300 p-3 rounded-md mb-4 text-center">
+                      <p className="font-bold">Generation Failed</p>
+                      <p className="text-sm">{selectedJob.error}</p>
+                  </div>
+                  <div className="flex items-center justify-center">
+                      <Button onClick={() => handleResumeGeneration(selectedJob.id!)} variant="primary" className="w-auto">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                          </svg>
+                          Resume Generation
+                      </Button>
+                  </div>
+              </div>
+            )}
           </>
         )}
       </div>
