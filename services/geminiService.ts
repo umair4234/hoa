@@ -216,7 +216,16 @@ export const generateThumbnailImage = async (
 
     if (!imagePart || !imagePart.inlineData) {
       console.error("Image generation response did not contain an image part:", response);
-      throw new Error("Image generation failed to return an image.");
+      const textPart = response.candidates?.[0]?.content?.parts?.find(part => part.text);
+      const blockReason = response.promptFeedback?.blockReason;
+      let detailedError = "Image generation failed to return an image.";
+      if (blockReason) {
+        detailedError += ` The request was blocked for: ${blockReason}.`;
+      }
+      if (textPart?.text) {
+        detailedError += ` The model responded with: "${textPart.text}"`;
+      }
+      throw new Error(detailedError);
     }
 
     const { mimeType, data } = imagePart.inlineData;

@@ -398,6 +398,12 @@ const App: React.FC = () => {
           setIsLoadingThumbnailImage(false);
       }
   }, [selectedJob, updateJob]);
+
+  const handleUploadThumbnailImage = useCallback((dataUrl: string) => {
+    if (!selectedJob) return;
+    const existingUrls = selectedJob.thumbnailImageUrls || [];
+    updateJob(selectedJob.id, { thumbnailImageUrls: [...existingUrls, dataUrl] });
+  }, [selectedJob, updateJob]);
   
   const handleGenerateTitles = useCallback(async () => {
     if (!selectedJob || !selectedJob.hook) return;
@@ -630,6 +636,7 @@ const App: React.FC = () => {
           isLoadingImage={isLoadingThumbnailImage}
           onReanalyze={handleGenerateThumbnailIdeas}
           onGenerateImage={handleGenerateThumbnailImage}
+          onUploadImage={handleUploadThumbnailImage}
           thumbnailImageUrls={selectedJob.thumbnailImageUrls || null}
         />
       )}

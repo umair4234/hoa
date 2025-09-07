@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Button from './Button';
 import { ThumbnailIdeas } from '../types';
 import InlineLoader from './InlineLoader';
@@ -19,6 +19,7 @@ interface ThumbnailIdeasModalProps {
     baseImage?: string;
     model: ImageModel;
   }) => void;
+  onUploadImage: (dataUrl: string) => void;
   thumbnailImageUrls: string[] | null;
 }
 
@@ -30,13 +31,15 @@ const ThumbnailIdeasModal: React.FC<ThumbnailIdeasModalProps> = ({
   isLoadingImage,
   onReanalyze,
   onGenerateImage,
+  onUploadImage,
   thumbnailImageUrls
 }) => {
   const [prompt, setPrompt] = useState('');
   const [text, setText] = useState('');
   const [addTextOverlay, setAddTextOverlay] = useState(true);
   const [editPrompt, setEditPrompt] = useState('');
-  const [selectedModel, setSelectedModel] = useState<ImageModel>('gemini-2.5-flash-image-preview');
+  const [selectedModel, setSelectedModel] = useState<ImageModel>('imagen-4.0-generate-001');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (ideas) {
@@ -70,6 +73,25 @@ const ThumbnailIdeasModal: React.FC<ThumbnailIdeasModalProps> = ({
     document.body.removeChild(link);
   };
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64String = reader.result as string;
+            onUploadImage(base64String);
+        };
+        reader.readAsDataURL(file);
+    }
+    if (event.target) {
+        event.target.value = '';
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const hasImages = thumbnailImageUrls && thumbnailImageUrls.length > 0;
 
   return (
@@ -100,12 +122,12 @@ const ThumbnailIdeasModal: React.FC<ThumbnailIdeasModalProps> = ({
                 <label className="block text-sm font-medium text-gray-400 mb-1">Image Generation Model</label>
                 <div className="flex gap-x-6 gap-y-2 flex-wrap bg-gray-900 p-2 rounded-md border border-gray-700">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" value="gemini-2.5-flash-image-preview" checked={selectedModel === 'gemini-2.5-flash-image-preview'} onChange={e => setSelectedModel(e.target.value as ImageModel)} className="form-radio bg-gray-800 border-gray-600 text-indigo-500 focus:ring-indigo-500" />
-                    <span className="text-sm">Flash (Fast & Good for Edits)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" value="imagen-4.0-generate-001" checked={selectedModel === 'imagen-4.0-generate-001'} onChange={e => setSelectedModel(e.target.value as ImageModel)} className="form-radio bg-gray-800 border-gray-600 text-indigo-500 focus:ring-indigo-500" />
                     <span className="text-sm">Imagen 4 (Highest Quality)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" value="gemini-2.5-flash-image-preview" checked={selectedModel === 'gemini-2.5-flash-image-preview'} onChange={e => setSelectedModel(e.target.value as ImageModel)} className="form-radio bg-gray-800 border-gray-600 text-indigo-500 focus:ring-indigo-500" />
+                    <span className="text-sm">Flash (Fast & Good for Edits)</span>
                   </label>
                 </div>
               </div>
@@ -115,7 +137,7 @@ const ThumbnailIdeasModal: React.FC<ThumbnailIdeasModalProps> = ({
                   id="image_prompt"
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
-                  rows={8}
+                  rows={6}
                   className="w-full bg-gray-900 border border-gray-700 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
                 />
               </div>
@@ -125,7 +147,7 @@ const ThumbnailIdeasModal: React.FC<ThumbnailIdeasModalProps> = ({
                   id="text_on_thumbnail"
                   value={text}
                   onChange={e => setText(e.target.value)}
-                  rows={2}
+                  rows={1}
                   className="w-full bg-gray-900 border border-gray-700 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold uppercase"
                 />
               </div>
@@ -141,23 +163,41 @@ const ThumbnailIdeasModal: React.FC<ThumbnailIdeasModalProps> = ({
                 <label htmlFor="addText" className={`text-sm transition-colors ${selectedModel === 'imagen-4.0-generate-001' ? 'text-gray-500' : 'text-gray-300'}`}>Add text to image</label>
                 {selectedModel === 'imagen-4.0-generate-001' && <span className="text-xs text-gray-500">(Not supported by Imagen)</span>}
               </div>
-              <Button onClick={handleGenerateClick} variant="primary" disabled={isLoadingImage || !prompt}>
-                {hasImages ? 'Generate Another Initial Image' : 'Generate Thumbnail'}
-              </Button>
+
+              <div className="flex flex-col gap-2 pt-2 border-t border-gray-700">
+                <p className="text-xs text-center text-gray-400 font-semibold">Step 1: Create a Base Image</p>
+                <div className="grid grid-cols-2 gap-2">
+                    <Button onClick={handleGenerateClick} variant="primary" disabled={isLoadingImage || !prompt}>
+                      Generate Image
+                    </Button>
+                    <Button onClick={handleUploadClick} variant="secondary" disabled={isLoadingImage}>
+                      Upload Your Own
+                    </Button>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/png, image/jpeg, image/webp"
+                  className="hidden"
+                  aria-hidden="true"
+                />
+              </div>
 
               {hasImages && (
                 <div className="pt-4 border-t border-gray-700 space-y-2">
-                  <label htmlFor="edit_prompt" className="block text-sm font-medium text-gray-400 mb-1">Describe changes for the latest image</label>
+                  <p className="text-xs text-center text-gray-400 font-semibold">Step 2: Edit the Latest Image</p>
+                  <label htmlFor="edit_prompt" className="block text-sm font-medium text-gray-400 mb-1">Describe changes</label>
                   <textarea
                     id="edit_prompt"
                     value={editPrompt}
                     onChange={e => setEditPrompt(e.target.value)}
-                    rows={3}
+                    rows={2}
                     placeholder="e.g., make the woman's suit red, add rain, change the setting to nighttime"
                     className="w-full bg-gray-900 border border-gray-700 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
                   />
                   <Button onClick={handleGenerateVariationClick} variant="secondary" disabled={isLoadingImage || !editPrompt.trim()}>
-                    Generate Variation
+                    Generate Variation (with Flash)
                   </Button>
                 </div>
               )}

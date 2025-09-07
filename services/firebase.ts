@@ -1,7 +1,7 @@
 
 
-// FIX: Use a named import for initializeApp as per Firebase v9+ modular SDK standards.
-import { initializeApp } from "firebase/app";
+// FIX: Switched to a namespace import for 'firebase/app' to resolve an issue where the named export 'initializeApp' was not found.
+import * as firebaseApp from "firebase/app";
 // FIX: Use namespace import for firebase/auth to resolve named export error for getAuth.
 import * as firebaseAuth from "firebase/auth";
 import * as firestore from "firebase/firestore";
@@ -18,8 +18,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-// FIX: The initializeApp function is called directly when using a named import.
-const app = initializeApp(firebaseConfig);
+// FIX: Call initializeApp from the firebaseApp namespace object.
+const app = firebaseApp.initializeApp(firebaseConfig);
 
 // Export the services you'll need in your components
 // FIX: Use getAuth from the firebaseAuth namespace.
