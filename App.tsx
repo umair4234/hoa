@@ -3,6 +3,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Button from './components/Button';
 import ApiKeyManager from './components/ApiKeyManager';
@@ -371,7 +372,7 @@ const App: React.FC = () => {
   
   // --- LIBRARY HANDLERS ---
   const handleArchiveJob = useCallback((jobId: string) => {
-    updateJob(jobId, { libraryStatus: 'ARCHIVED' });
+    updateJob(jobId, { libraryStatus: 'ARCHIVED', userStatus: undefined });
   }, [updateJob]);
 
   const handleRestoreJob = useCallback((jobId: string) => {
@@ -384,6 +385,31 @@ const App: React.FC = () => {
         jobsRef.current = newJobs;
         setJobs(newJobs);
     }
+  }, []);
+
+  const handleToggleUserStatus = useCallback((jobId: string) => {
+    const targetJob = jobsRef.current.find(j => j.id === jobId);
+    if (!targetJob) return;
+
+    const isCurrentlyWorking = targetJob.userStatus === 'WORKING';
+
+    // FIX: Explicitly define the return type of the map function as ScriptJob
+    // to help TypeScript correctly infer the type of `newJobs` and avoid assignment errors.
+    const newJobs = jobsRef.current.map((job): ScriptJob => {
+      // For the job that was clicked
+      if (job.id === jobId) {
+        // If it was the 'WORKING' job, clear its status. Otherwise, set it to 'WORKING'.
+        return { ...job, userStatus: isCurrentlyWorking ? undefined : 'WORKING' };
+      }
+      // If we are setting a NEW job to 'WORKING', we must clear the status from the old one.
+      if (!isCurrentlyWorking && job.userStatus === 'WORKING') {
+        return { ...job, userStatus: undefined };
+      }
+      return job;
+    });
+
+    jobsRef.current = newJobs;
+    setJobs(newJobs);
   }, []);
 
   // --- POST-GENERATION HANDLERS ---
@@ -643,27 +669,47 @@ const App: React.FC = () => {
             </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {jobs.filter(job => job.libraryStatus === libraryFilter).map(job => (
-                <div key={job.id} className="bg-gray-800 rounded-lg p-5 flex flex-col justify-between border border-gray-700 hover:border-indigo-600 transition-colors">
+            {jobs
+                .filter(job => job.libraryStatus === libraryFilter)
+                .sort((a, b) => a.createdAt - b.createdAt)
+                .map(job => (
+                <div 
+                    key={job.id} 
+                    className={`bg-gray-800 rounded-lg p-5 flex flex-col justify-between border-2 transition-all duration-300 ${job.userStatus === 'WORKING' ? 'border-cyan-500 shadow-lg shadow-cyan-500/10' : 'border-gray-700 hover:border-indigo-600'}`}
+                >
                     <div>
-                        <h3 className="font-bold text-lg text-gray-200 truncate mb-2">{job.refinedTitle || job.title}</h3>
-                        <p className="text-xs text-gray-400 mb-4">Created: {new Date(job.createdAt).toLocaleDateString()}</p>
-                        <div className="flex items-center gap-2 text-sm font-medium px-2 py-1 rounded-full text-center w-fit"
-                            style={{
-                                'WRITING': {backgroundColor: '#3b82f6', color: '#fff'},
-                                'PAUSED': {backgroundColor: '#f97316', color: '#fff'},
-                                'DONE': {backgroundColor: '#22c55e', color: '#fff'},
-                                'FAILED': {backgroundColor: '#ef4444', color: '#fff'}
-                            }[job.status]}>
-                            {job.status}
+                        <div className="flex justify-between items-start mb-2">
+                            <h3 className="font-bold text-lg text-gray-200 truncate pr-2 flex-1" title={job.refinedTitle || job.title}>{job.refinedTitle || job.title}</h3>
+                             <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                                {job.userStatus === 'WORKING' && (
+                                    <div className="text-xs font-bold px-2 py-1 rounded-full bg-cyan-500 text-white animate-pulse">
+                                        WORKING ON
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-2 text-sm font-medium px-2 py-1 rounded-full text-center"
+                                    style={{
+                                        'WRITING': {backgroundColor: '#3b82f6', color: '#fff'},
+                                        'PAUSED': {backgroundColor: '#f97316', color: '#fff'},
+                                        'DONE': {backgroundColor: '#22c55e', color: '#fff'},
+                                        'FAILED': {backgroundColor: '#ef4444', color: '#fff'}
+                                    }[job.status]}>
+                                    {job.status}
+                                </div>
+                            </div>
                         </div>
+                        <p className="text-xs text-gray-400 mb-4">Created: {new Date(job.createdAt).toLocaleString()}</p>
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-700 flex flex-col gap-2">
                         <Button onClick={() => { setSelectedJobId(job.id); setView('WORKSPACE'); }} className="w-full">
                             View Script
                         </Button>
                          {libraryFilter === 'AVAILABLE' ? (
-                            <Button onClick={() => handleArchiveJob(job.id)} variant="secondary" className="w-full">Archive</Button>
+                            <>
+                                <Button onClick={() => handleToggleUserStatus(job.id)} variant="secondary" className={`w-full ${job.userStatus === 'WORKING' ? 'ring-2 ring-cyan-500' : ''}`}>
+                                  {job.userStatus === 'WORKING' ? 'Clear Status' : 'Mark as Working'}
+                                </Button>
+                                <Button onClick={() => handleArchiveJob(job.id)} variant="secondary" className="w-full">Archive</Button>
+                            </>
                         ) : (
                             <div className="flex gap-2">
                                 <Button onClick={() => handleRestoreJob(job.id)} variant="secondary" className="w-full">Restore</Button>

@@ -67,4 +67,6 @@ export interface ScriptJob {
   splitterText?: string;
   splitSections?: SplitSection[];
   maxCharsPerSection?: number;
+  // User-defined status
+  userStatus?: 'WORKING';
 }
