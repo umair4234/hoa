@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Button from './components/Button';
 import ApiKeyManager from './components/ApiKeyManager';
@@ -248,6 +242,25 @@ const App: React.FC = () => {
     runFullGeneration(jobId);
   };
 
+  const triggerAutomaticPostGenerationTasks = useCallback(async (jobId: string) => {
+    const job = jobsRef.current.find(j => j.id === jobId);
+    // Don't run if job not found, hook is missing, or packages already exist
+    if (!job || !job.hook || (job.titleDescriptionPackages && job.titleDescriptionPackages.length > 0)) {
+      return;
+    }
+
+    try {
+      console.log(`Automatically generating titles/descriptions for job ${jobId}...`);
+      const fullScript = `${job.hook}\n\n${job.chaptersContent.join('\n\n')}`;
+      const packages = await generateTitlesAndDescriptions(job.title, fullScript);
+      updateJob(job.id, { titleDescriptionPackages: packages });
+      console.log(`Successfully generated titles/descriptions for job ${jobId}.`);
+    } catch (e) {
+      console.error(`Automatic title/description generation failed for job ${jobId}:`, e);
+      // Silently fail, user can still trigger manually.
+    }
+  }, [updateJob]);
+
   const runFullGeneration = async (jobId: string) => {
     setGenerationStatus(GenerationStatus.RUNNING);
     generationStatusRef.current = GenerationStatus.RUNNING;
@@ -343,6 +356,9 @@ const App: React.FC = () => {
         updateJob(jobId, { status: 'DONE', currentTask: 'Completed!' });
         setGenerationStatus(GenerationStatus.DONE);
         generationStatusRef.current = GenerationStatus.DONE;
+        
+        // Automatically generate titles & descriptions on completion
+        triggerAutomaticPostGenerationTasks(jobId);
 
     } catch (error: any) {
         console.error("Script generation failed:", error);
@@ -551,8 +567,8 @@ const App: React.FC = () => {
         ) : (
           <>
             <div className="p-4 border-b border-gray-800 bg-gray-900">
-                <h3 className="text-xl font-semibold text-center mb-4 break-words" title={selectedJob.refinedTitle || selectedJob.title}>
-                    {selectedJob.refinedTitle || selectedJob.title}
+                <h3 className="text-xl font-semibold text-center mb-4 break-words" title={selectedJob.title}>
+                    {selectedJob.title}
                 </h3>
                 <ManualProgressTracker 
                   outlines={selectedJob.outlines} 
@@ -679,7 +695,7 @@ const App: React.FC = () => {
                 >
                     <div>
                         <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-bold text-lg text-gray-200 truncate pr-2 flex-1" title={job.refinedTitle || job.title}>{job.refinedTitle || job.title}</h3>
+                            <h3 className="font-bold text-lg text-gray-200 truncate pr-2 flex-1" title={job.title}>{job.title}</h3>
                              <div className="flex flex-col items-end gap-2 flex-shrink-0">
                                 {job.userStatus === 'WORKING' && (
                                     <div className="text-xs font-bold px-2 py-1 rounded-full bg-cyan-500 text-white animate-pulse">

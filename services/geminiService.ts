@@ -3,6 +3,17 @@ import { ChapterOutline, ThumbnailIdeas, TitleDescriptionPackage } from "../type
 import { OUTLINES_PROMPT_TEMPLATE, HOOK_PROMPT_TEMPLATE, CHAPTER_BATCH_PROMPT_TEMPLATE, THUMBNAIL_IDEAS_PROMPT_TEMPLATE, TITLES_DESCRIPTIONS_PROMPT_TEMPLATE } from "../constants";
 import { callGeminiApi, callImagenApi } from "./apiService";
 
+// Helper to extract JSON from a string, removing markdown fences if they exist.
+const extractJson = (text: string): string => {
+  // Look for a JSON block within markdown fences
+  const match = text.match(/```(json)?\s*([\s\S]+?)\s*```/);
+  if (match && match[2]) {
+    return match[2].trim();
+  }
+  // If no fences, assume the whole text is the JSON
+  return text.trim();
+};
+
 export const generateOutlines = async (title: string, concept: string, duration: number): Promise<string> => {
   const prompt = OUTLINES_PROMPT_TEMPLATE(title, concept, duration);
   const response = await callGeminiApi({
@@ -70,11 +81,11 @@ export const generateThumbnailIdeas = async (title: string, hook: string): Promi
   });
 
   try {
-    const jsonStr = response.text.trim();
+    const jsonStr = extractJson(response.text);
     const parsed = JSON.parse(jsonStr);
     return parsed as ThumbnailIdeas;
   } catch (error) {
-    console.error("Failed to parse thumbnail ideas JSON:", error);
+    console.error("Failed to parse thumbnail ideas JSON:", error, "Raw text:", response.text);
     throw new Error("Could not parse the thumbnail ideas from the AI response.");
   }
 };
@@ -111,7 +122,7 @@ export const generateTitlesAndDescriptions = async (originalTitle: string, fullS
   });
 
   try {
-    const jsonStr = response.text.trim();
+    const jsonStr = extractJson(response.text);
     const parsed = JSON.parse(jsonStr) as Omit<TitleDescriptionPackage, 'id' | 'status'>[];
     // Add the id and default status client-side
     return parsed.map((item, index) => ({
@@ -120,7 +131,7 @@ export const generateTitlesAndDescriptions = async (originalTitle: string, fullS
       status: 'Unused'
     }));
   } catch (error) {
-    console.error("Failed to parse titles and descriptions JSON:", error);
+    console.error("Failed to parse titles and descriptions JSON:", error, "Raw text:", response.text);
     throw new Error("Could not parse the titles and descriptions from the AI response.");
   }
 };
