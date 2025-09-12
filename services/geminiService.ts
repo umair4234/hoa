@@ -1,6 +1,6 @@
 import { Modality, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { ChapterOutline, ThumbnailIdeas, TitleDescriptionPackage } from "../types";
-import { OUTLINES_PROMPT_TEMPLATE, HOOK_PROMPT_TEMPLATE, CHAPTER_BATCH_PROMPT_TEMPLATE, THUMBNAIL_IDEAS_PROMPT_TEMPLATE, TITLES_DESCRIPTIONS_PROMPT_TEMPLATE } from "../constants";
+import { OUTLINES_PROMPT_TEMPLATE, HOOK_PROMPT_TEMPLATE, CHAPTER_BATCH_PROMPT_TEMPLATE, POST_GENERATION_ASSETS_PROMPT_TEMPLATE } from "../constants";
 import { callGeminiApi, callImagenApi } from "./apiService";
 
 // Helper to extract JSON from a string, removing markdown fences if they exist.
@@ -57,8 +57,11 @@ export const generateChapterBatch = async (
   return chapterContents;
 };
 
-export const generateThumbnailIdeas = async (title: string, hook: string): Promise<ThumbnailIdeas> => {
-  const prompt = THUMBNAIL_IDEAS_PROMPT_TEMPLATE(title, hook);
+export const generatePostGenerationAssets = async (
+  originalTitle: string,
+  fullScript: string
+): Promise<{ thumbnailIdeas: ThumbnailIdeas; titleDescriptionPackages: TitleDescriptionPackage[] }> => {
+  const prompt = POST_GENERATION_ASSETS_PROMPT_TEMPLATE(originalTitle, fullScript);
   const response = await callGeminiApi({
     model: 'gemini-2.5-flash',
     contents: prompt,
@@ -67,15 +70,36 @@ export const generateThumbnailIdeas = async (title: string, hook: string): Promi
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          image_generation_prompt: {
-            type: Type.STRING,
-            description: "A detailed, ready-to-use image generation prompt for a cinematic thumbnail."
+          thumbnail_ideas: {
+            type: Type.OBJECT,
+            properties: {
+              image_generation_prompt: { type: Type.STRING },
+              text_on_thumbnail: { type: Type.STRING }
+            },
+            required: ['image_generation_prompt', 'text_on_thumbnail']
           },
-          text_on_thumbnail: {
-            type: Type.STRING,
-            description: "The exact, punchy, all-caps text to overlay on the thumbnail."
+          original_title_assets: {
+            type: Type.OBJECT,
+            properties: {
+              description: { type: Type.STRING },
+              hashtags: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ['description', 'hashtags']
+          },
+          alternative_title_packages: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                description: { type: Type.STRING },
+                hashtags: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              required: ['title', 'description', 'hashtags']
+            }
           }
-        }
+        },
+        required: ['thumbnail_ideas', 'original_title_assets', 'alternative_title_packages']
       }
     }
   });
@@ -83,56 +107,29 @@ export const generateThumbnailIdeas = async (title: string, hook: string): Promi
   try {
     const jsonStr = extractJson(response.text);
     const parsed = JSON.parse(jsonStr);
-    return parsed as ThumbnailIdeas;
-  } catch (error) {
-    console.error("Failed to parse thumbnail ideas JSON:", error, "Raw text:", response.text);
-    throw new Error("Could not parse the thumbnail ideas from the AI response.");
-  }
-};
 
-export const generateTitlesAndDescriptions = async (originalTitle: string, fullScript: string): Promise<TitleDescriptionPackage[]> => {
-  const prompt = TITLES_DESCRIPTIONS_PROMPT_TEMPLATE(originalTitle, fullScript);
-  const response = await callGeminiApi({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            title: {
-              type: Type.STRING,
-              description: "The video title, under 100 characters."
-            },
-            description: {
-              type: Type.STRING,
-              description: "A 2-3 line summary of the video's story."
-            },
-            hashtags: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "An array of 5 relevant hashtags."
-            }
-          }
-        }
-      }
-    }
-  });
+    const thumbnailIdeas: ThumbnailIdeas = parsed.thumbnail_ideas;
 
-  try {
-    const jsonStr = extractJson(response.text);
-    const parsed = JSON.parse(jsonStr) as Omit<TitleDescriptionPackage, 'id' | 'status'>[];
-    // Add the id and default status client-side
-    return parsed.map((item, index) => ({
+    const originalPackage: TitleDescriptionPackage = {
+      id: 1,
+      title: originalTitle,
+      description: parsed.original_title_assets.description,
+      hashtags: parsed.original_title_assets.hashtags,
+      status: 'Unused',
+    };
+
+    const alternativePackages: TitleDescriptionPackage[] = parsed.alternative_title_packages.map((item: any, index: number) => ({
       ...item,
-      id: index + 1,
+      id: index + 2, // Start IDs from 2
       status: 'Unused'
     }));
+
+    const titleDescriptionPackages = [originalPackage, ...alternativePackages];
+
+    return { thumbnailIdeas, titleDescriptionPackages };
   } catch (error) {
-    console.error("Failed to parse titles and descriptions JSON:", error, "Raw text:", response.text);
-    throw new Error("Could not parse the titles and descriptions from the AI response.");
+    console.error("Failed to parse post-generation assets JSON:", error, "Raw text:", response.text);
+    throw new Error("Could not parse the assets from the AI response.");
   }
 };
 

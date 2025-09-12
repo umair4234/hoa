@@ -17,8 +17,7 @@ import {
   generateOutlines, 
   generateHook, 
   generateChapterBatch,
-  generateThumbnailIdeas,
-  generateTitlesAndDescriptions,
+  generatePostGenerationAssets,
   generateThumbnailImage
 } from './services/geminiService';
 import { auth } from './services/firebase';
@@ -41,23 +40,14 @@ const createUniqueId = () => Date.now().toString(36) + Math.random().toString(36
 const countWords = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
 
 // Robust parser for the outline format from the AI
-const parseOutlines = (rawText: string): { refinedTitle: string; outlines: ChapterOutline[] } => {
+const parseOutlines = (rawText: string): { outlines: ChapterOutline[] } => {
     const text = rawText.replace(/^---/, '').trim();
-    let refinedTitle = '';
     const outlines: ChapterOutline[] = [];
 
-    const titleMatch = text.match(/^Title:\s*(.*)/);
-    if (titleMatch) {
-        refinedTitle = titleMatch[1].trim();
-    } else {
-        console.error("Could not find 'Title:' in raw text:", `"${rawText}"`);
-    }
+    // Split by "Chapter X:" but keep the delimiter and filter out empty strings
+    const chapterBlocks = text.split(/\n?(?=Chapter \d+:)/).filter(block => block.trim());
 
-    // Split by "Chapter X:" but keep the delimiter in the next block. It's easier to find the title.
-    const chapterBlocks = text.split(/\n(?=Chapter \d+:)/);
-
-    // Slice(1) to skip the initial block which contains the title and "Chapter 0" (hook placeholder)
-    chapterBlocks.slice(1).forEach((block) => {
+    chapterBlocks.forEach((block) => {
         const idMatch = block.match(/^Chapter (\d+):/);
         const titleMatch = block.match(/^Chapter \d+:\s*(.*)/);
         const wordCountMatch = block.match(/\(Word Count:\s*(\d+)/);
@@ -80,7 +70,7 @@ const parseOutlines = (rawText: string): { refinedTitle: string; outlines: Chapt
         throw new Error("Failed to parse script outlines from AI response. The format may have been incorrect.");
     }
 
-    return { refinedTitle, outlines };
+    return { outlines };
 };
 
 
@@ -113,9 +103,8 @@ const App: React.FC = () => {
 
   // --- MODAL STATE ---
   const [isThumbnailModalOpen, setIsThumbnailModalOpen] = useState(false);
-  const [isLoadingThumbnailIdeas, setIsLoadingThumbnailIdeas] = useState(false);
+  const [isPostGenAssetsLoading, setIsPostGenAssetsLoading] = useState(false);
   const [isLoadingThumbnailImage, setIsLoadingThumbnailImage] = useState(false);
-  const [isTitleDescLoading, setIsTitleDescLoading] = useState(false);
   const [isTitleDescModalOpen, setIsTitleDescModalOpen] = useState(false);
 
   // Load data from localStorage on initial mount
@@ -215,7 +204,7 @@ const App: React.FC = () => {
       status: 'WRITING',
       createdAt: Date.now(),
       rawOutlineText: '',
-      refinedTitle: '',
+      refinedTitle: title.trim(), // Set refinedTitle to original title
       outlines: [],
       hook: '',
       chaptersContent: [],
@@ -242,24 +231,23 @@ const App: React.FC = () => {
     runFullGeneration(jobId);
   };
 
-  const triggerAutomaticPostGenerationTasks = useCallback(async (jobId: string) => {
-    const job = jobsRef.current.find(j => j.id === jobId);
-    // Don't run if job not found, hook is missing, or packages already exist
-    if (!job || !job.hook || (job.titleDescriptionPackages && job.titleDescriptionPackages.length > 0)) {
-      return;
-    }
+  const handleGeneratePostGenerationAssets = useCallback(async (jobIdToProcess?: string) => {
+    const job = jobsRef.current.find(j => j.id === (jobIdToProcess || selectedJobId));
+    if (!job || !job.hook) return;
 
+    setIsPostGenAssetsLoading(true);
     try {
-      console.log(`Automatically generating titles/descriptions for job ${jobId}...`);
-      const fullScript = `${job.hook}\n\n${job.chaptersContent.join('\n\n')}`;
-      const packages = await generateTitlesAndDescriptions(job.title, fullScript);
-      updateJob(job.id, { titleDescriptionPackages: packages });
-      console.log(`Successfully generated titles/descriptions for job ${jobId}.`);
+        const fullScript = `${job.hook}\n\n${job.chaptersContent.join('\n\n')}`;
+        const { thumbnailIdeas, titleDescriptionPackages } = await generatePostGenerationAssets(job.title, fullScript);
+        
+        updateJob(job.id, { thumbnailIdeas, titleDescriptionPackages });
     } catch (e) {
-      console.error(`Automatic title/description generation failed for job ${jobId}:`, e);
-      // Silently fail, user can still trigger manually.
+        console.error('Post-generation asset creation failed:', e);
+        alert('Failed to generate titles, descriptions, and thumbnail ideas.');
+    } finally {
+        setIsPostGenAssetsLoading(false);
     }
-  }, [updateJob]);
+  }, [selectedJobId, updateJob]);
 
   const runFullGeneration = async (jobId: string) => {
     setGenerationStatus(GenerationStatus.RUNNING);
@@ -291,8 +279,8 @@ const App: React.FC = () => {
           setCurrentTask('Generating outlines...');
           updateJob(jobId, { currentTask: 'Generating outlines...' });
           const rawOutlineText = await generateOutlines(title, concept, duration);
-          const { refinedTitle, outlines } = parseOutlines(rawOutlineText);
-          updateJob(jobId, { rawOutlineText, refinedTitle, outlines });
+          const { outlines } = parseOutlines(rawOutlineText);
+          updateJob(jobId, { rawOutlineText, refinedTitle: title, outlines });
         }
         
         currentJobState = getCurrentJobState();
@@ -358,7 +346,7 @@ const App: React.FC = () => {
         generationStatusRef.current = GenerationStatus.DONE;
         
         // Automatically generate titles & descriptions on completion
-        triggerAutomaticPostGenerationTasks(jobId);
+        handleGeneratePostGenerationAssets(jobId);
 
     } catch (error: any) {
         console.error("Script generation failed:", error);
@@ -442,23 +430,9 @@ const App: React.FC = () => {
     setView('SPLITTER');
   };
 
-  const handleGenerateThumbnailIdeas = useCallback(async () => {
-    if (!selectedJob || !selectedJob.hook) return;
-    setIsLoadingThumbnailIdeas(true);
-    try {
-      const ideas = await generateThumbnailIdeas(selectedJob.refinedTitle, selectedJob.hook);
-      updateJob(selectedJob.id, { thumbnailIdeas: ideas });
-    } catch(e) {
-      console.error(e);
-      alert("Failed to generate thumbnail ideas.");
-    } finally {
-      setIsLoadingThumbnailIdeas(false);
-    }
-  }, [selectedJob, updateJob]);
-
   const handleOpenThumbnailModal = () => {
     if (!selectedJob?.thumbnailIdeas) {
-      handleGenerateThumbnailIdeas();
+      handleGeneratePostGenerationAssets();
     }
     setIsThumbnailModalOpen(true);
   };
@@ -484,27 +458,11 @@ const App: React.FC = () => {
     updateJob(selectedJob.id, { thumbnailImageUrls: [...existingUrls, dataUrl] });
   }, [selectedJob, updateJob]);
   
-  const handleGenerateTitles = useCallback(async () => {
-    if (!selectedJob || !selectedJob.hook) return;
-    setIsTitleDescLoading(true);
-    try {
-      const fullScript = `${selectedJob.hook}\n\n${selectedJob.chaptersContent.join('\n\n')}`;
-      const packages = await generateTitlesAndDescriptions(selectedJob.title, fullScript);
-      updateJob(selectedJob.id, { titleDescriptionPackages: packages });
-      setIsTitleDescModalOpen(true); // Open modal after generation
-    } catch (e) {
-      console.error(e);
-      alert('Failed to generate titles and descriptions.');
-    } finally {
-      setIsTitleDescLoading(false);
-    }
-  }, [selectedJob, updateJob]);
-
   const handleOpenTitlesModal = () => {
-    if (selectedJob?.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0) {
-      setIsTitleDescModalOpen(true);
+    if (!selectedJob?.titleDescriptionPackages || selectedJob.titleDescriptionPackages.length === 0) {
+      handleGeneratePostGenerationAssets();
     } else {
-      handleGenerateTitles();
+      setIsTitleDescModalOpen(true);
     }
   };
 
@@ -645,9 +603,11 @@ const App: React.FC = () => {
                     onSplitScript={handleSplitScript}
                   />
                     <div className="flex gap-4 mt-4">
-                      <Button onClick={handleOpenThumbnailModal}>Thumbnail Workshop</Button>
-                      <Button onClick={handleOpenTitlesModal} disabled={isTitleDescLoading}>
-                          {isTitleDescLoading ? 'Generating...' : (selectedJob.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0) ? 'View Titles & Descriptions' : 'Generate Titles & Descriptions'}
+                      <Button onClick={handleOpenThumbnailModal} disabled={isPostGenAssetsLoading}>
+                        {isPostGenAssetsLoading ? 'Generating Assets...' : 'Thumbnail Workshop'}
+                      </Button>
+                      <Button onClick={handleOpenTitlesModal} disabled={isPostGenAssetsLoading}>
+                        {isPostGenAssetsLoading ? 'Generating Assets...' : 'Titles & Descriptions'}
                       </Button>
                   </div>
               </div>
@@ -748,9 +708,9 @@ const App: React.FC = () => {
           isOpen={isThumbnailModalOpen}
           onClose={() => setIsThumbnailModalOpen(false)}
           ideas={selectedJob.thumbnailIdeas || null}
-          isLoadingIdeas={isLoadingThumbnailIdeas}
+          isLoadingIdeas={isPostGenAssetsLoading}
           isLoadingImage={isLoadingThumbnailImage}
-          onReanalyze={handleGenerateThumbnailIdeas}
+          onReanalyze={() => handleGeneratePostGenerationAssets()}
           onGenerateImage={handleGenerateThumbnailImage}
           onUploadImage={handleUploadThumbnailImage}
           thumbnailImageUrls={selectedJob.thumbnailImageUrls || null}
@@ -764,8 +724,8 @@ const App: React.FC = () => {
             onUpdatePackages={(updatedPackages) => {
                 updateJob(selectedJob!.id, { titleDescriptionPackages: updatedPackages });
             }}
-            onRegenerate={handleGenerateTitles}
-            isLoading={isTitleDescLoading}
+            onRegenerate={() => handleGeneratePostGenerationAssets()}
+            isLoading={isPostGenAssetsLoading}
         />
       )}
 

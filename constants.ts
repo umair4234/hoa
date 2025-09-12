@@ -23,14 +23,11 @@ You will structure the entire story around these five beats. Distribute the tota
 ---
 **Your Task:**
 
-1.  **Refine the Title:** Make the user's title more exciting and simple, under 100 characters.
-2.  **Calculate Word Count:** Total words = ${duration} * 150. Distribute this total across all chapters, following the 5-beat structure percentages.
-3.  **Create Chapters:** Build the story with 5-12 chapters, mapped to the 5 beats. For each chapter, provide a title, word count, and a simple concept using conversational language.
+1.  **Calculate Word Count:** Total words = ${duration} * 150. Distribute this total across all chapters, following the 5-beat structure percentages.
+2.  **Create Chapters:** Build the story with 5-12 chapters, mapped to the 5 beats. For each chapter, provide a title, word count, and a simple concept using conversational language.
 
 **Required Output Format:**
 ---
-Title: [Your Refined Title Here]
-
 Chapter 0: The Hook
 (Hook to be written later).
 
@@ -104,7 +101,7 @@ Your mission is to write the full script content for a batch of chapters based o
 
 **CRITICAL RULES FOR WRITING (ALL CHAPTERS):**
 
-1.  **SIMPLE, CONVERSATIONAL ENGLISH:** This is the most important rule. Use common, everyday words. The narration must sound like a real person telling a story to a friend. Avoid complex, "literary" vocabulary. The tone must be clear, direct, and authentic.
+1.  **SIMPLE, CONVERSATIONAL ENGLISH:** This is the most important rule. Use common, everyday words. The narration must sound like a real person telling a story to a friend. Avoid complex, "literary" vocabulary.
 2.  **FIRST-PERSON POV:** Write the entire script from the hero's first-person ("I", "me", "my") point of view.
 3.  **WRITING STYLE - SENTENCE FLOW:** You MUST use a mix of short and medium-length sentences to feel natural and powerful.
 4.  **STICK TO THE CONCEPT:** Your writing for each chapter MUST strictly adhere to the provided concept and stay within the target word count.
@@ -150,44 +147,40 @@ Concept: ${c.concept}
 Remember, your response should be ONLY the script content for these chapters, separated by \`---CHAPTER-BREAK---\`.
 `;
 
-export const THUMBNAIL_IDEAS_PROMPT_TEMPLATE = (title: string, hook: string) => `
-I want you to act as a viral YouTube thumbnail designer and strategist. Your goal is to create compelling thumbnail ideas for a first-person revenge story video.
+export const POST_GENERATION_ASSETS_PROMPT_TEMPLATE = (originalTitle: string, fullScript: string) => `
+I want you to act as a YouTube SEO, viral marketing, and click-through-rate optimization expert. Your task is to generate a complete package of post-production assets for a YouTube video based on its title and full script.
 
-The output MUST be a JSON object that strictly follows this schema:
+The output MUST be a single JSON object that strictly follows this schema:
 {
-  "image_generation_prompt": "A detailed, ready-to-use image generation prompt for a cinematic thumbnail.",
-  "text_on_thumbnail": "The exact, punchy, all-caps text to overlay on the thumbnail."
-}
-
-**RULES FOR CREATING THE IDEAS:**
-
-1.  **Image Prompt:** The image generation prompt should be cinematic, high-contrast, and emotionally charged. Describe the scene, the lighting, the hero's expression, and the villain's action. It should be a prompt that an AI image generator like Midjourney or DALL-E can understand perfectly.
-2.  **Thumbnail Text:** The text should be VERY short (2-5 words), all-caps, and incredibly punchy. It should create curiosity and highlight the core conflict. Use simple, powerful words.
-
-Here is the context for the video:
-
-**Video Title:** ${title}
-
-**Video Hook:** ${hook}
-
-Now, generate the JSON object with the thumbnail ideas. Your response MUST only contain the JSON object and nothing else.
-`;
-
-export const TITLES_DESCRIPTIONS_PROMPT_TEMPLATE = (originalTitle: string, fullScript: string) => `
-I want you to act as a YouTube SEO and click-through-rate optimization expert. Your task is to generate 3 alternative, highly clickable packages of titles, descriptions, and hashtags for a video, based on its original title and full script.
-
-The output MUST be a JSON array containing exactly 3 objects. Each object must strictly follow this schema:
-{
-  "title": "The video title, under 100 characters.",
-  "description": "A 2-3 line summary of the video's story.",
-  "hashtags": ["An array of 5 relevant hashtags, including #revenge and #storytime."]
+  "thumbnail_ideas": {
+    "image_generation_prompt": "A detailed, ready-to-use image generation prompt for a cinematic thumbnail.",
+    "text_on_thumbnail": "The exact, punchy, all-caps text to overlay on the thumbnail (2-5 words)."
+  },
+  "original_title_assets": {
+    "description": "A 2-3 line summary of the video's story, optimized for the original title.",
+    "hashtags": ["An array of 5 relevant hashtags, including #revenge and #storytime."]
+  },
+  "alternative_title_packages": [
+    {
+      "title": "Alternative Title 1, under 100 characters.",
+      "description": "A 2-3 line summary optimized for this alternative title.",
+      "hashtags": ["An array of 5 relevant hashtags for this title."]
+    },
+    {
+      "title": "Alternative Title 2, under 100 characters.",
+      "description": "A 2-3 line summary optimized for this alternative title.",
+      "hashtags": ["An array of 5 relevant hashtags for this title."]
+    }
+  ]
 }
 
 **RULES FOR GENERATION:**
 
-1.  **Titles:** Titles should be emotionally charged and create immense curiosity. They often follow patterns like "[Villain's Action] So I [Hero's Epic Revenge]". Keep them under 100 characters.
-2.  **Descriptions:** Descriptions should be a short, compelling summary of the story's arc. Hook the reader and make them want to watch the whole thing.
-3.  **Hashtags:** Include a mix of broad and specific hashtags. They MUST include #revenge and #storytime.
+1.  **Thumbnail Image Prompt:** The prompt should be cinematic, high-contrast, and emotionally charged. Describe the scene, lighting, hero's expression, and villain's action for an AI image generator.
+2.  **Thumbnail Text:** Text must be VERY short (2-5 words), all-caps, and incredibly punchy to create curiosity.
+3.  **Original Title Assets:** For the provided original title, create a compelling description and relevant hashtags.
+4.  **Alternative Titles:** Generate two alternative titles that are emotionally charged and follow patterns like "[Villain's Action] So I [Hero's Epic Revenge]". Keep them under 100 characters.
+5.  **Alternative Descriptions/Hashtags:** Each alternative title needs its own tailored description and set of hashtags.
 
 Here is the context:
 
@@ -199,5 +192,5 @@ ${originalTitle}
 ${fullScript}
 ---
 
-Now, generate the JSON array with the 3 title/description/hashtag packages. Your response MUST only contain the JSON array and nothing else.
+Now, generate the single JSON object with all the assets. Your response MUST only contain the JSON object and nothing else.
 `;
