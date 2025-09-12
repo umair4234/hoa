@@ -1,45 +1,51 @@
 
 
+
 export const OUTLINES_PROMPT_TEMPLATE = (title: string, concept: string, duration: number) => `
-I want you to act as a Master Storyteller and YouTube Script Architect. Your specialty is creating gripping, first-person revenge stories with deep emotional stakes. Your mission is to take a simple video idea and structure it into a compelling chapter-by-chapter outline for a long-form video.
+I want you to act as a Master Storyteller and YouTube Script Architect. Your mission is to structure a video idea into a compelling chapter-by-chapter outline, architected for maximum viewer retention. Your old instructions are outdated; follow this new guide precisely.
 
-IMPORTANT: The language used in the title, chapter titles, and concepts MUST be extremely simple, clear, and easy for a 5th grader to understand. No complex vocabulary or sentence structures. Your entire response must strictly follow the format below. Do not add any extra text, explanation, or greetings.
+**Part 1: The Core Philosophy - Simple Language & Retention**
+The goal is to front-load action and suspense. The audience clicked for the revenge plot, so we must deliver it quickly. Most importantly, the language used in the titles and concepts MUST be extremely simple, clear, and conversational, like an adult telling a story to another adult. Avoid complex or "literary" words.
 
-First, you must understand the "Secret Formula" of these stories:
+**Part 2: The New Outline Blueprint: The 5 Story Beats**
+You will structure the entire story around these five beats. Distribute the total word count (150 words per minute) to serve this new, fast-paced structure.
 
-Emotional Core is Everything: The audience doesn't care about an HOA rule; they care about a good, hardworking person protecting their family's legacy. Chapter 1's entire job is to build this deep emotional connection to the hero and what they stand to lose.
-The Deeper Conspiracy: The villain isn't just a mean neighbor; they are often running a larger criminal scheme (like embezzlement). The hero accidentally stumbles into this, raising the stakes from a simple dispute to a fight for justice.
+1.  **Beat 1: The Injustice (The Opener | ~15% of Script | First 1-2 chapters):** Must be short and concise. Its only job is to establish the hero, the villain, and the core injustice.
+2.  **Beat 2: The Reveal (Early in the Script):** The chapter immediately following the setup. This is where the hero discovers or reveals their secret advantage or unique leverage. This MUST happen early.
+3.  **Beat 3: The Plan (The Longest Section | ~50-60% of Script):** The heart of the story. The hero methodically uses their advantage to research the villain, gather evidence, and prepare their revenge. This can be multiple chapters.
+4.  **Beat 4: The Climax (The Payoff):** The satisfying chapter where the revenge is executed in detail.
+5.  **Beat 5: The Aftermath (The Conclusion | ~5% of Script):** A brief final chapter showing the resolution.
 
-Now, follow these steps to build the outline:
+**Part 3: Critical Overriding Rules**
+1.  **Antagonist:** The primary antagonist (the "HOA" villain archetype) MUST always be a woman.
+2.  **Format:** Your entire response must strictly follow the format below. Do not add any extra text, explanation, or greetings.
 
-1. Refine the Title: Make the user's title more exciting, following the formula: [Villain's Action] — [Hero's Secret Power/Situation]! Keep it under 100 characters.
+---
+**Your Task:**
 
-2. Calculate and Distribute Word Count: The rule is: 1 minute of video = 150 words. For a ${duration} minute video, the total word count for the entire script should be approximately ${duration * 150} words. Distribute this total word count across all chapters following these critical rules:
-- Chapter 1 MUST have a word count between 400 and 500 words to establish the emotional core.
-- The Hook is separate and will be written later (assume around 150 words).
-- The remaining word count should be distributed intelligently among the other chapters (Chapter 2 onwards). The word count for these chapters can and should vary to best serve the story's pacing and narrative needs. The key is that the total sum of word counts for all chapters should equal the target total for the video.
+1.  **Refine the Title:** Make the user's title more exciting and simple, under 100 characters.
+2.  **Calculate Word Count:** Total words = ${duration} * 150. Distribute this total across all chapters, following the 5-beat structure percentages.
+3.  **Create Chapters:** Build the story with 5-12 chapters, mapped to the 5 beats. For each chapter, provide a title, word count, and a simple concept using conversational language.
 
-3. Create the Chapters: Build the story with 5-12 chapters, depending on what best serves the story for the given duration. For each chapter, give it a title, a word count, and a simple concept.
-
-Your response must be in this exact format:
+**Required Output Format:**
 ---
 Title: [Your Refined Title Here]
 
 Chapter 0: The Hook
-(Hook to be written later, following the high-action, first-person style).
+(Hook to be written later).
 
-Chapter 1: [Chapter 1 Title]
-(Word Count: [Number between 400-500] words)
-Concept: [A simple 2-3 sentence concept for this chapter.]
-
-Chapter 2: [Chapter 2 Title]
+Chapter 1: [Chapter 1 Title - Start of Beat 1]
 (Word Count: [Number] words)
 Concept: [A simple 2-3 sentence concept for this chapter.]
 
-(And so on for all chapters...)
+Chapter 2: [Chapter 2 Title - Part of Beat 1 or Start of Beat 2]
+(Word Count: [Number] words)
+Concept: [A simple 2-3 sentence concept for this chapter.]
+
+(And so on for all chapters, ensuring they map to the 5 beats...)
 ---
 
-(Paste your information in the brackets below)
+**User Input:**
 
 Title:
 {
@@ -58,56 +64,82 @@ ${duration} minutes
 `;
 
 export const HOOK_PROMPT_TEMPLATE = (outlinesText: string) => `
-I want you to act as an expert writer for viral, first-person YouTube revenge stories. Your job is to take the provided story outline and write a powerful, high-energy hook (120-150 words).
+I want you to act as an expert writer for viral, first-person YouTube revenge stories. Your job is to take the provided story outline and write a powerful, high-energy hook (120-150 words). Your previous instructions are obsolete. You must follow these new rules precisely.
 
-**CRITICAL RULES FOR WRITING THE HOOK:**
+**Part 1: The Core Rule - Use Extremely Simple, Conversational English**
+Your single most important job is to use common, everyday words that a real person would use when telling a powerful story to a friend. The tone should be clear, direct, and authentic. Avoid "literary" or "novelistic" words.
 
-1.  **EXTREMELY SIMPLE ENGLISH:** The language must be incredibly simple. Imagine you are talking to a 10-year-old. Use common words and easy-to-understand ideas. This is the most important rule.
+**Example of the Required Language Shift (Study This):**
 
-2.  **WRITING STYLE - SENTENCE FLOW:** You MUST use a mix of short and medium-length sentences. Do not write only short, choppy sentences. The writing should feel natural and powerful.
-    *   **BAD STYLE (Too choppy):** "I had a big dream. I worked very hard for it. For many years, I worked day and night. I saved all my money. I wanted to buy a perfect house. Not just any house."
-    *   **GOOD STYLE (Natural flow):** "I had a big dream that I worked incredibly hard for over many years. Working day and night, I saved all my money because I wanted to buy the perfect house. It couldn't be just any house, though; it had to be a special home for my family."
+*   **INCORRECT (Too Complex):** "This audacious HOA president and her cronies demolished my cherished hunting cabin, reducing my sanctuary to rubble without warning... they made one colossal mistake... My entire professional life has been dedicated to upholding and dissecting the very legal systems they just shattered..."
+*   **CORRECT (Simple, Natural & Powerful):** "This HOA president tore down my hunting cabin. It was my special place... She and her friends destroyed it without any warning... But they made a very big mistake... My whole life's work has been studying and protecting the very laws they just broke..."
 
-3.  **STARTING THE HOOK:** The hook MUST begin by directly identifying the villain and their action. Start the story in the middle of the most dramatic moment.
-    *   **Correct example:** "This HOA president burned my house to the ground..."
-    *   **Correct example:** "This corrupt landlord thought she could evict a war hero..."
-    *   **Incorrect example:** "One night, the flames went high..."
+Adopt the voice and simplicity of the "CORRECT" version precisely.
 
-4.  **ENDING THE HOOK:** The hook MUST end with a specific two-part phrase: first a question to the audience, then a call to comment.
-    *   **Required format:** "Before we dive into the full story, what would you do if [a similar situation happened to you]? Let us know in the comments."
+**Part 2: CRITICAL RULES FOR WRITING THE HOOK**
 
-5.  **HERO'S VOICE & SECRET:** Write from the hero's first-person ("I", "me") point of view. The hook must reveal the hero's secret power or job and promise huge consequences for the villain.
+1.  **The Opening Sentence Rule (MANDATORY):** The hook MUST begin by identifying the villain and their core action. Use the format: "This [Adjective] [Villain]..."
+2.  **The Hint (NO SPOILERS):** You MUST NOT reveal the hero's specific profession or secret power. You must HINT at their unique advantage or area of expertise.
+3.  **The CTA and Promise:** Use a short, direct CTA, followed by a compelling promise.
 
-Now, using the story outline below for context, write the hook following all of these rules precisely.
+**GOLD STANDARD HOOK TEMPLATE (Use this as your model):**
+---
+[START OF SCRIPT] This power-hungry HOA president tore down my hunting cabin using a fake reason, thinking she was just another homeowner she could scare. She destroyed the one place I felt at peace, ignoring the law because she thought she was in charge. But she made a very big mistake. She started a fight about property rules and paperwork, without ever knowing that my whole life's work is mastering that exact system.
 
-Here is the story outline:
+But before we get to the rest of the story, make sure to like the video and subscribe so you don't miss what's next. Now, get ready, because you're about to see what happens when a mean person's fake documents go up against a true expert.
+---
+
+Now, using the story outline below for context, write the hook following all of these new rules precisely.
+
+**Story Outline:**
 ---
 ${outlinesText}
 ---
 `;
 
-// FIX: Added missing prompt templates
 export const CHAPTER_BATCH_PROMPT_TEMPLATE = (fullOutlinesText: string, chapters: { id: number; title: string; wordCount: number; concept: string }[]) => `
-I want you to act as a Master Storyteller and YouTube Scriptwriter. Your specialty is writing gripping, first-person revenge stories with deep emotional stakes.
+I want you to act as a Master Storyteller and YouTube Scriptwriter. Your specialty is writing gripping, first-person revenge stories using simple, conversational language. Your previous instructions are outdated.
 
-Your mission is to write the full script content for a batch of chapters, based on the provided story outline and chapter details.
+Your mission is to write the full script content for a batch of chapters based on the provided story outline and chapter details.
 
-**CRITICAL RULES FOR WRITING:**
+**CRITICAL RULES FOR WRITING (ALL CHAPTERS):**
 
-1.  **FIRST-PERSON POV:** Write the entire script from the hero's first-person ("I", "me", "my") point of view.
-2.  **EXTREMELY SIMPLE ENGLISH:** The language must be incredibly simple. Imagine you are talking to a 10-year-old. Use common words and easy-to-understand ideas. This is the most important rule.
-3.  **WRITING STYLE - SENTENCE FLOW:** You MUST use a mix of short and medium-length sentences. Do not write only short, choppy sentences. The writing should feel natural and powerful, not robotic.
+1.  **SIMPLE, CONVERSATIONAL ENGLISH:** This is the most important rule. Use common, everyday words. The narration must sound like a real person telling a story to a friend. Avoid complex, "literary" vocabulary. The tone must be clear, direct, and authentic.
+2.  **FIRST-PERSON POV:** Write the entire script from the hero's first-person ("I", "me", "my") point of view.
+3.  **WRITING STYLE - SENTENCE FLOW:** You MUST use a mix of short and medium-length sentences to feel natural and powerful.
 4.  **STICK TO THE CONCEPT:** Your writing for each chapter MUST strictly adhere to the provided concept and stay within the target word count.
-5.  **SHOW, DON'T TELL:** Instead of saying "I was angry," describe the feeling: "My fists clenched so hard my knuckles turned white, and a hot rage boiled up inside my chest."
+5.  **SHOW, DON'T TELL:** Instead of saying "I was angry," describe the feeling: "My fists clenched, and I could feel my face getting hot."
 6.  **NO EXTRA TEXT:** Do NOT add any chapter titles, word count information, or any other text that is not part of the story's narrative itself. Only provide the raw script content for the chapters.
 7.  **OUTPUT FORMAT:** You MUST separate the content of each chapter with exactly this delimiter: \`---CHAPTER-BREAK---\`. Do not use it at the beginning or end, only between chapters.
+
+---
+**!!! CRITICAL INSTRUCTIONS FOR CHAPTER 1 !!!**
+If you are asked to write Chapter 1, you MUST follow these rules with extreme precision. Chapter 1 must be a high-impact, seamless narrative continuation of the hook.
+
+1.  **The Smooth Narrative Start Rule:** Chapter 1 must begin with a smooth, narrative opening that grounds the viewer in the story. Do NOT use conversational filler like 'Okay, so...' or 'Alright, let me tell you...'. Start directly with the story's setting and action.
+2.  **Withhold the Secret:** Do NOT reveal the hero's specific job title in Chapter 1. Refer to it in general terms like "my stressful job," "my line of work," or "my career in law."
+3.  **Simple, Conversational Flow:** Use the simple, natural language defined in the main rules.
+
+**GOLD STANDARD CHAPTER 1 START TEMPLATE (Use this structure and style):**
+---
+"It was a Tuesday evening, a pretty normal night for us. My wife, [Wife's Name], had just gotten home from her job. She’s a [Noble Profession, e.g., Paramedic], so her days are full of emergencies and stress, and she was very tired. All we wanted was a quiet night at home to relax.
+
+But then we heard a scream from next door. It was a real scream, from a real person in trouble. My wife knew right away it was our elderly neighbor, [Neighbor's Name].
+
+She didn't even think. The [Professional Title] in her just took over. She jumped up, said our neighbor had a bad heart and that she had to go, and ran out the door with her keys.
+
+In an emergency like that, every second counts. Our driveway is long, and backing out would take too much time. So she did the fastest thing possible: she drove her car right over the lawn and parked it with two wheels on the curb, right by the neighbor's door.
+
+Now, while this was happening, our other neighbor, [The Villain's Name], was watching from her window. But she didn't see an emergency. All she saw was a car parked the wrong way. And while my wife was inside, trying to save a life, [The Villain's Name] picked up her phone. She wasn't calling for help. She was calling a tow truck. It’s just hard to believe someone could be so cold."
+---
+---
 
 First, here is the full story outline for context:
 ---
 ${fullOutlinesText}
 ---
 
-Now, write the full script content for the following chapters. Adhere strictly to their concepts and word counts.
+Now, write the full script content for the following chapters. Adhere strictly to their concepts, word counts, and any special chapter-specific instructions above.
 
 ${chapters.map(c => `
 Chapter ${c.id}: ${c.title}
