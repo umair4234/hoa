@@ -1,8 +1,8 @@
-// FIX: The error "Property 'initializeApp' does not exist" indicates the namespace import is not working as expected.
-// Reverting to the standard, documented V9 modular syntax with named imports is the correct way to fix this.
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+
+// FIX: The original v9 modular imports were failing, likely due to a project setup expecting the namespaced (v8) API. Switching to the v9 compatibility library to provide that API and resolve initialization errors.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/firestore';
 
 // Your web app's Firebase configuration from the setup screen
 const firebaseConfig = {
@@ -16,8 +16,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+firebase.initializeApp(firebaseConfig);
 
 // Export the services you'll need in your components
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const auth = firebase.auth();
+export const db = firebase.firestore();

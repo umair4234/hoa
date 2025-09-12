@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Button from './components/Button';
 import ApiKeyManager from './components/ApiKeyManager';
@@ -21,7 +22,8 @@ import {
   generateThumbnailImage
 } from './services/geminiService';
 import { auth } from './services/firebase';
-import * as firebaseAuth from "firebase/auth";
+// FIX: Removed incorrect namespace import and added named import for User type.
+import { User } from "firebase/auth";
 
 import { 
   ScriptJob, 
@@ -76,7 +78,8 @@ const parseOutlines = (rawText: string): { outlines: ChapterOutline[] } => {
 
 const App: React.FC = () => {
   // --- AUTH & CONFIG ---
-  const [user, setUser] = useState<firebaseAuth.User | null>(null);
+  // FIX: Use the imported User type directly, not from a namespace.
+  const [user, setUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [apiKeys, setApiKeys] = useState<string[]>([]);
   const [isApiKeyManagerOpen, setIsApiKeyManagerOpen] = useState(false);
@@ -136,7 +139,8 @@ const App: React.FC = () => {
 
   // Firebase auth listener
   useEffect(() => {
-    const unsubscribe = firebaseAuth.onAuthStateChanged(auth, (currentUser) => {
+    // FIX: Use the v8/compat `auth.onAuthStateChanged` method.
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
       setIsLoadingAuth(false);
     });
@@ -231,7 +235,7 @@ const App: React.FC = () => {
     runFullGeneration(jobId);
   };
 
-  const handleGeneratePostGenerationAssets = useCallback(async (jobIdToProcess?: string) => {
+  const handleGeneratePostGenerationAssets = useCallback(async (jobIdToProcess?: string, openModalOnSuccess = false) => {
     const job = jobsRef.current.find(j => j.id === (jobIdToProcess || selectedJobId));
     if (!job || !job.hook) return;
 
@@ -241,6 +245,9 @@ const App: React.FC = () => {
         const { thumbnailIdeas, titleDescriptionPackages } = await generatePostGenerationAssets(job.title, fullScript);
         
         updateJob(job.id, { thumbnailIdeas, titleDescriptionPackages });
+        if (openModalOnSuccess) {
+            setIsTitleDescModalOpen(true);
+        }
     } catch (e) {
         console.error('Post-generation asset creation failed:', e);
         alert('Failed to generate titles, descriptions, and thumbnail ideas.');
@@ -345,8 +352,8 @@ const App: React.FC = () => {
         setGenerationStatus(GenerationStatus.DONE);
         generationStatusRef.current = GenerationStatus.DONE;
         
-        // Automatically generate titles & descriptions on completion
-        handleGeneratePostGenerationAssets(jobId);
+        // Automatically generate titles & descriptions on completion and open the modal
+        handleGeneratePostGenerationAssets(jobId, true);
 
     } catch (error: any) {
         console.error("Script generation failed:", error);
@@ -371,7 +378,8 @@ const App: React.FC = () => {
   };
   
   const handleSignOut = async () => {
-    await firebaseAuth.signOut(auth);
+    // FIX: Use the v8/compat `auth.signOut()` method.
+    await auth.signOut();
   };
   
   // --- LIBRARY HANDLERS ---
@@ -460,7 +468,7 @@ const App: React.FC = () => {
   
   const handleOpenTitlesModal = () => {
     if (!selectedJob?.titleDescriptionPackages || selectedJob.titleDescriptionPackages.length === 0) {
-      handleGeneratePostGenerationAssets();
+      handleGeneratePostGenerationAssets(selectedJob?.id, true);
     } else {
       setIsTitleDescModalOpen(true);
     }
@@ -724,7 +732,7 @@ const App: React.FC = () => {
             onUpdatePackages={(updatedPackages) => {
                 updateJob(selectedJob!.id, { titleDescriptionPackages: updatedPackages });
             }}
-            onRegenerate={() => handleGeneratePostGenerationAssets()}
+            onRegenerate={() => handleGeneratePostGenerationAssets(selectedJob?.id, true)}
             isLoading={isPostGenAssetsLoading}
         />
       )}

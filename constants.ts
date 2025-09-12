@@ -156,11 +156,12 @@ The output MUST be a single JSON object that strictly follows this schema:
     "image_generation_prompt": "A detailed, ready-to-use image generation prompt for a cinematic thumbnail.",
     "text_on_thumbnail": "The exact, punchy, all-caps text to overlay on the thumbnail (2-5 words)."
   },
-  "original_title_assets": {
-    "description": "A 2-3 line summary of the video's story, optimized for the original title.",
-    "hashtags": ["An array of 5 relevant hashtags, including #revenge and #storytime."]
-  },
-  "alternative_title_packages": [
+  "title_packages": [
+    {
+      "title": "This title MUST be the exact same as the 'Original Video Title' provided in the input.",
+      "description": "A 2-3 line summary of the video's story, written specifically for the original title.",
+      "hashtags": ["An array of 5 relevant hashtags for the original title, including #revenge and #storytime."]
+    },
     {
       "title": "Alternative Title 1, under 100 characters.",
       "description": "A 2-3 line summary optimized for this alternative title.",
@@ -178,9 +179,9 @@ The output MUST be a single JSON object that strictly follows this schema:
 
 1.  **Thumbnail Image Prompt:** The prompt should be cinematic, high-contrast, and emotionally charged. Describe the scene, lighting, hero's expression, and villain's action for an AI image generator.
 2.  **Thumbnail Text:** Text must be VERY short (2-5 words), all-caps, and incredibly punchy to create curiosity.
-3.  **Original Title Assets:** For the provided original title, create a compelling description and relevant hashtags.
+3.  **Title Packages:** Generate three packages. The first package MUST use the exact original title provided below. The other two packages should contain new, alternative titles.
 4.  **Alternative Titles:** Generate two alternative titles that are emotionally charged and follow patterns like "[Villain's Action] So I [Hero's Epic Revenge]". Keep them under 100 characters.
-5.  **Alternative Descriptions/Hashtags:** Each alternative title needs its own tailored description and set of hashtags.
+5.  **Descriptions/Hashtags:** Each title package needs its own tailored description and set of hashtags.
 
 Here is the context:
 

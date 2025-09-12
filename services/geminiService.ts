@@ -67,176 +67,106 @@ export const generatePostGenerationAssets = async (
     contents: prompt,
     config: {
       responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          thumbnail_ideas: {
-            type: Type.OBJECT,
-            properties: {
-              image_generation_prompt: { type: Type.STRING },
-              text_on_thumbnail: { type: Type.STRING }
-            },
-            required: ['image_generation_prompt', 'text_on_thumbnail']
-          },
-          original_title_assets: {
-            type: Type.OBJECT,
-            properties: {
-              description: { type: Type.STRING },
-              hashtags: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ['description', 'hashtags']
-          },
-          alternative_title_packages: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                description: { type: Type.STRING },
-                hashtags: { type: Type.ARRAY, items: { type: Type.STRING } }
-              },
-              required: ['title', 'description', 'hashtags']
-            }
-          }
-        },
-        required: ['thumbnail_ideas', 'original_title_assets', 'alternative_title_packages']
-      }
     }
   });
 
-  try {
-    const jsonStr = extractJson(response.text);
-    const parsed = JSON.parse(jsonStr);
-
-    const thumbnailIdeas: ThumbnailIdeas = parsed.thumbnail_ideas;
-
-    const originalPackage: TitleDescriptionPackage = {
-      id: 1,
-      title: originalTitle,
-      description: parsed.original_title_assets.description,
-      hashtags: parsed.original_title_assets.hashtags,
-      status: 'Unused',
-    };
-
-    const alternativePackages: TitleDescriptionPackage[] = parsed.alternative_title_packages.map((item: any, index: number) => ({
-      ...item,
-      id: index + 2, // Start IDs from 2
-      status: 'Unused'
-    }));
-
-    const titleDescriptionPackages = [originalPackage, ...alternativePackages];
-
-    return { thumbnailIdeas, titleDescriptionPackages };
-  } catch (error) {
-    console.error("Failed to parse post-generation assets JSON:", error, "Raw text:", response.text);
-    throw new Error("Could not parse the assets from the AI response.");
+  const jsonText = extractJson(response.text);
+  const data = JSON.parse(jsonText);
+  
+  if (!data.title_packages || !Array.isArray(data.title_packages)) {
+    throw new Error("AI response for post-generation assets is missing 'title_packages' array.");
   }
+  
+  let packagesFromAI: any[] = data.title_packages;
+  let finalPackages: any[] = [];
+  
+  // Find the package with the original title (case-insensitive search).
+  const originalPackageIndex = packagesFromAI.findIndex(p => p.title && p.title.toLowerCase() === originalTitle.toLowerCase());
+
+  if (originalPackageIndex > -1) {
+    // If found, remove it from its current position and make it the first element.
+    const originalPackage = packagesFromAI.splice(originalPackageIndex, 1)[0];
+    // Also, ensure its title is exactly the original title, case-sensitively.
+    originalPackage.title = originalTitle; 
+    finalPackages = [originalPackage, ...packagesFromAI];
+  } else {
+    // If the AI completely failed to include the original title, log a warning
+    // and force the first result's title to match the original.
+    console.warn("AI did not generate a package for the original title as requested. Forcing the first title to match.");
+    if (packagesFromAI.length > 0) {
+        packagesFromAI[0].title = originalTitle;
+    }
+    finalPackages = packagesFromAI;
+  }
+  
+  const titleDescriptionPackages: TitleDescriptionPackage[] = finalPackages.map((pkg: any, index: number) => ({
+    id: index,
+    title: pkg.title,
+    description: pkg.description,
+    hashtags: pkg.hashtags || [], // Ensure hashtags is always an array
+    status: 'Unused',
+  }));
+
+  return {
+    thumbnailIdeas: data.thumbnail_ideas,
+    titleDescriptionPackages,
+  };
 };
 
-function fileToGenerativePart(dataUrl: string) {
-  const match = dataUrl.match(/^data:(.+);base64,(.+)$/);
-  if (!match) {
-    throw new Error('Invalid data URL format');
-  }
-  const mimeType = match[1];
-  const data = match[2];
-  return {
-    inlineData: {
-      mimeType,
-      data,
-    },
-  };
-}
-
 export const generateThumbnailImage = async (
-  prompt: string,
-  textOverlay: string,
-  addTextOverlay: boolean,
-  model: 'gemini-2.5-flash-image-preview' | 'imagen-4.0-generate-001',
-  baseImage?: string
+    prompt: string,
+    text?: string,
+    addText?: boolean,
+    model?: string,
+    baseImage?: string
 ): Promise<string> => {
-  if (model === 'imagen-4.0-generate-001') {
-    if (baseImage) {
-      throw new Error("Imagen 4.0 does not support image editing/variations.");
+    const activeModel = model || 'imagen-4.0-generate-001';
+
+    if (activeModel === 'imagen-4.0-generate-001') {
+        const response = await callImagenApi({
+            model: 'imagen-4.0-generate-001',
+            prompt: prompt,
+            config: {
+                numberOfImages: 1,
+                outputMimeType: 'image/jpeg',
+                aspectRatio: '16:9',
+            },
+        });
+        if (!response.generatedImages || response.generatedImages.length === 0) {
+            throw new Error("Imagen API did not return an image.");
+        }
+        return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
+
+    } else { // 'gemini-2.5-flash-image-preview'
+        const parts: any[] = [];
+        if (baseImage) {
+             // strip base64 prefix
+            const base64Data = baseImage.substring(baseImage.indexOf(',') + 1);
+            const mimeType = baseImage.substring(baseImage.indexOf(':') + 1, baseImage.indexOf(';'));
+            parts.push({
+                inlineData: {
+                    data: base64Data,
+                    mimeType: mimeType,
+                },
+            });
+        }
+        parts.push({ text: prompt });
+        if (addText && text) {
+            parts.push({ text: `Please add the following text to the image, stylized for a YouTube thumbnail: "${text}"`});
+        }
+        
+        const response = await callGeminiApi({
+            model: 'gemini-2.5-flash-image-preview',
+            contents: { parts: parts },
+            config: {
+                responseModalities: [Modality.IMAGE, Modality.TEXT],
+            },
+        });
+
+        const imagePart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+        if (imagePart && imagePart.inlineData) {
+            return `data:image/png;base64,${imagePart.inlineData.data}`;
+        }
+        throw new Error("The model did not return an image.");
     }
-
-    const response = await callImagenApi({
-      model: 'imagen-4.0-generate-001',
-      prompt: prompt, // Text overlay is not reliable with Imagen
-      config: {
-        numberOfImages: 1,
-        outputMimeType: 'image/jpeg',
-        aspectRatio: '16:9',
-      },
-    });
-
-    const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-    return `data:image/jpeg;base64,${base64ImageBytes}`;
-
-  } else { // gemini-2.5-flash-image-preview
-    let fullPrompt = prompt;
-
-    if (!baseImage && addTextOverlay) {
-      // For initial generation with text.
-      fullPrompt = `${prompt}. The image MUST have the following text prominently displayed on it, in a large, bold, easy-to-read font, styled like a viral YouTube thumbnail: "${textOverlay}"`;
-    } else if (baseImage) {
-      // For variations, the prompt is just the edit instruction.
-      fullPrompt = prompt;
-    }
-
-    if (!baseImage) {
-      fullPrompt = `${fullPrompt} The image must be in a 16:9 aspect ratio, with a resolution of 1280x720 pixels.`;
-    }
-
-    const parts: any[] = [];
-    if (baseImage) {
-      parts.push(fileToGenerativePart(baseImage));
-    }
-    parts.push({ text: fullPrompt });
-
-    const response = await callGeminiApi({
-      model: 'gemini-2.5-flash-image-preview',
-      contents: { parts },
-      config: {
-        responseModalities: [Modality.IMAGE, Modality.TEXT],
-        safetySettings: [
-          {
-            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-            threshold: HarmBlockThreshold.BLOCK_NONE,
-          },
-          {
-            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-            threshold: HarmBlockThreshold.BLOCK_NONE,
-          },
-          {
-            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-            threshold: HarmBlockThreshold.BLOCK_NONE,
-          },
-          {
-            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-            threshold: HarmBlockThreshold.BLOCK_NONE,
-          },
-        ],
-      },
-    });
-
-    const imagePart = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
-
-    if (!imagePart || !imagePart.inlineData) {
-      console.error("Image generation response did not contain an image part:", response);
-      const textPart = response.candidates?.[0]?.content?.parts?.find(part => part.text);
-      const blockReason = response.promptFeedback?.blockReason;
-      let detailedError = "Image generation failed to return an image.";
-      if (blockReason) {
-        detailedError += ` The request was blocked for: ${blockReason}.`;
-      }
-      if (textPart?.text) {
-        detailedError += ` The model responded with: "${textPart.text}"`;
-      }
-      throw new Error(detailedError);
-    }
-
-    const { mimeType, data } = imagePart.inlineData;
-    return `data:${mimeType};base64,${data}`;
-  }
 };

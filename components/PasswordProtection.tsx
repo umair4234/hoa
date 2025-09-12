@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import Button from './Button';
-// FIX: Use namespace import for firebase/auth to resolve named export errors.
-import * as firebaseAuth from "firebase/auth";
+// FIX: The component was using incorrect v9 modular syntax. Switched to v8/compat syntax to align with firebase.ts, and imported firebase/compat/app for persistence constants.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
 import { auth } from '../services/firebase';
 
 const PasswordProtection: React.FC = () => {
@@ -17,16 +19,16 @@ const PasswordProtection: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Explicitly set persistence to 'local' to remember the user across browser sessions.
+      // FIX: Use v8/compat auth methods and persistence constants.
       // This ensures the user doesn't have to log in every time they visit.
-      await firebaseAuth.setPersistence(auth, firebaseAuth.browserLocalPersistence);
+      await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
       if (isLogin) {
-        // FIX: Use signInWithEmailAndPassword from the firebaseAuth namespace.
-        await firebaseAuth.signInWithEmailAndPassword(auth, email, password);
+        // FIX: Use signInWithEmailAndPassword from the auth service.
+        await auth.signInWithEmailAndPassword(email, password);
       } else {
-        // FIX: Use createUserWithEmailAndPassword from the firebaseAuth namespace.
-        await firebaseAuth.createUserWithEmailAndPassword(auth, email, password);
+        // FIX: Use createUserWithEmailAndPassword from the auth service.
+        await auth.createUserWithEmailAndPassword(email, password);
       }
       // onAuthStateChanged in App.tsx will handle the rest.
     } catch (err: any) {
