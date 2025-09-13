@@ -34,9 +34,10 @@ export interface TitleDescriptionPackage {
   usedAt?: number;
 }
 
-export interface ThumbnailIdeas {
-  image_generation_prompt: string;
-  text_on_thumbnail: string;
+export interface GeneratedThumbnailIdea {
+  summary: string;
+  textOverlay: string;
+  imageGenerationPrompt: string;
 }
 
 export interface SplitSection {
@@ -60,7 +61,7 @@ export interface ScriptJob {
   chaptersContent: string[];
   currentTask?: string;
   libraryStatus: LibraryStatus;
-  thumbnailIdeas?: ThumbnailIdeas;
+  generatedThumbnailIdeas?: GeneratedThumbnailIdea[];
   thumbnailImageUrls?: string[];
   titleDescriptionPackages?: TitleDescriptionPackage[];
   // New properties for Splitter

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Button from './components/Button';
 import ApiKeyManager from './components/ApiKeyManager';
@@ -8,7 +9,7 @@ import CopyControls from './components/CopyControls';
 import InlineLoader from './components/InlineLoader';
 import GenerationControls from './components/GenerationControls';
 import PasswordProtection from './components/PasswordProtection';
-import ThumbnailIdeasModal from './components/ThumbnailIdeasModal';
+import ThumbnailIdeasViewerModal from './components/ThumbnailIdeasModal';
 import Loader from './components/Loader';
 import ScriptSplitter from './components/ScriptSplitter';
 import TitleDescriptionManager from './components/TitleDescriptionManager';
@@ -19,7 +20,7 @@ import {
   generateHook, 
   generateChapterBatch,
   generatePostGenerationAssets,
-  generateThumbnailImage
+  generateThumbnailIdeas
 } from './services/geminiService';
 import { auth } from './services/firebase';
 // FIX: Removed incorrect namespace import and added named import for User type.
@@ -105,9 +106,9 @@ const App: React.FC = () => {
   const [progress, setProgress] = useState({ wordsWritten: 0, totalWords: 0 });
 
   // --- MODAL STATE ---
-  const [isThumbnailModalOpen, setIsThumbnailModalOpen] = useState(false);
   const [isPostGenAssetsLoading, setIsPostGenAssetsLoading] = useState(false);
-  const [isLoadingThumbnailImage, setIsLoadingThumbnailImage] = useState(false);
+  const [isGeneratingThumbnailIdeas, setIsGeneratingThumbnailIdeas] = useState(false);
+  const [isThumbnailIdeasViewerOpen, setIsThumbnailIdeasViewerOpen] = useState(false);
   const [isTitleDescModalOpen, setIsTitleDescModalOpen] = useState(false);
 
   // Load data from localStorage on initial mount
@@ -242,15 +243,15 @@ const App: React.FC = () => {
     setIsPostGenAssetsLoading(true);
     try {
         const fullScript = `${job.hook}\n\n${job.chaptersContent.join('\n\n')}`;
-        const { thumbnailIdeas, titleDescriptionPackages } = await generatePostGenerationAssets(job.title, fullScript);
+        const { titleDescriptionPackages } = await generatePostGenerationAssets(job.title, fullScript);
         
-        updateJob(job.id, { thumbnailIdeas, titleDescriptionPackages });
+        updateJob(job.id, { titleDescriptionPackages });
         if (openModalOnSuccess) {
             setIsTitleDescModalOpen(true);
         }
     } catch (e) {
         console.error('Post-generation asset creation failed:', e);
-        alert('Failed to generate titles, descriptions, and thumbnail ideas.');
+        alert('Failed to generate titles and descriptions.');
     } finally {
         setIsPostGenAssetsLoading(false);
     }
@@ -352,8 +353,8 @@ const App: React.FC = () => {
         setGenerationStatus(GenerationStatus.DONE);
         generationStatusRef.current = GenerationStatus.DONE;
         
-        // Automatically generate titles & descriptions on completion and open the modal
-        handleGeneratePostGenerationAssets(jobId, true);
+        // Automatically generate titles & descriptions on completion
+        handleGeneratePostGenerationAssets(jobId, false);
 
     } catch (error: any) {
         console.error("Script generation failed:", error);
@@ -437,33 +438,27 @@ const App: React.FC = () => {
     
     setView('SPLITTER');
   };
-
-  const handleOpenThumbnailModal = () => {
-    if (!selectedJob?.thumbnailIdeas) {
-      handleGeneratePostGenerationAssets();
-    }
-    setIsThumbnailModalOpen(true);
-  };
   
-  const handleGenerateThumbnailImage = useCallback(async (config: any) => {
-      if (!selectedJob) return;
-      setIsLoadingThumbnailImage(true);
-      try {
-          const newImageUrl = await generateThumbnailImage(config.prompt, config.text, config.addText, config.model, config.baseImage);
-          const existingUrls = selectedJob.thumbnailImageUrls || [];
-          updateJob(selectedJob.id, { thumbnailImageUrls: [...existingUrls, newImageUrl] });
-      } catch (e: any) {
-          console.error(e);
-          alert(`Failed to generate image: ${e.message}`);
-      } finally {
-          setIsLoadingThumbnailImage(false);
-      }
-  }, [selectedJob, updateJob]);
+  const handleGetThumbnailIdeas = useCallback(async (forceRegenerate = false) => {
+    if (!selectedJob || !selectedJob.hook) return;
 
-  const handleUploadThumbnailImage = useCallback((dataUrl: string) => {
-    if (!selectedJob) return;
-    const existingUrls = selectedJob.thumbnailImageUrls || [];
-    updateJob(selectedJob.id, { thumbnailImageUrls: [...existingUrls, dataUrl] });
+    if (selectedJob.generatedThumbnailIdeas && !forceRegenerate) {
+        setIsThumbnailIdeasViewerOpen(true);
+        return;
+    }
+
+    setIsGeneratingThumbnailIdeas(true);
+    setIsThumbnailIdeasViewerOpen(true);
+    try {
+        const ideas = await generateThumbnailIdeas(selectedJob.title, selectedJob.hook);
+        updateJob(selectedJob.id, { generatedThumbnailIdeas: ideas });
+    } catch (e: any) {
+        console.error('Failed to generate thumbnail ideas:', e);
+        alert(`Failed to generate thumbnail ideas: ${e.message}`);
+        setIsThumbnailIdeasViewerOpen(false);
+    } finally {
+        setIsGeneratingThumbnailIdeas(false);
+    }
   }, [selectedJob, updateJob]);
   
   const handleOpenTitlesModal = () => {
@@ -611,11 +606,11 @@ const App: React.FC = () => {
                     onSplitScript={handleSplitScript}
                   />
                     <div className="flex gap-4 mt-4">
-                      <Button onClick={handleOpenThumbnailModal} disabled={isPostGenAssetsLoading}>
-                        {isPostGenAssetsLoading ? 'Generating Assets...' : 'Thumbnail Workshop'}
+                      <Button onClick={() => handleGetThumbnailIdeas()} disabled={isGeneratingThumbnailIdeas}>
+                        {isGeneratingThumbnailIdeas ? 'Generating...' : 'Get Thumbnail Ideas'}
                       </Button>
                       <Button onClick={handleOpenTitlesModal} disabled={isPostGenAssetsLoading}>
-                        {isPostGenAssetsLoading ? 'Generating Assets...' : 'Titles & Descriptions'}
+                        {isPostGenAssetsLoading ? 'Generating...' : 'Titles & Descriptions'}
                       </Button>
                   </div>
               </div>
@@ -712,16 +707,12 @@ const App: React.FC = () => {
       <ApiKeyManager isOpen={isApiKeyManagerOpen} onClose={() => setIsApiKeyManagerOpen(false)} apiKeys={apiKeys} setApiKeys={setApiKeys} />
       <GenerationControls status={generationStatus} onPause={handlePause} onResume={handleResume} onStop={handleStop} currentTask={currentTask} progress={progress}/>
       {selectedJob && (
-        <ThumbnailIdeasModal 
-          isOpen={isThumbnailModalOpen}
-          onClose={() => setIsThumbnailModalOpen(false)}
-          ideas={selectedJob.thumbnailIdeas || null}
-          isLoadingIdeas={isPostGenAssetsLoading}
-          isLoadingImage={isLoadingThumbnailImage}
-          onReanalyze={() => handleGeneratePostGenerationAssets()}
-          onGenerateImage={handleGenerateThumbnailImage}
-          onUploadImage={handleUploadThumbnailImage}
-          thumbnailImageUrls={selectedJob.thumbnailImageUrls || null}
+        <ThumbnailIdeasViewerModal 
+          isOpen={isThumbnailIdeasViewerOpen}
+          onClose={() => setIsThumbnailIdeasViewerOpen(false)}
+          ideas={selectedJob.generatedThumbnailIdeas || null}
+          isLoading={isGeneratingThumbnailIdeas}
+          onRegenerate={() => handleGetThumbnailIdeas(true)}
         />
       )}
       {selectedJob && (

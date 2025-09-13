@@ -1,7 +1,7 @@
 import { Modality, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
-import { ChapterOutline, ThumbnailIdeas, TitleDescriptionPackage } from "../types";
-import { OUTLINES_PROMPT_TEMPLATE, HOOK_PROMPT_TEMPLATE, CHAPTER_BATCH_PROMPT_TEMPLATE, POST_GENERATION_ASSETS_PROMPT_TEMPLATE } from "../constants";
-import { callGeminiApi, callImagenApi } from "./apiService";
+import { ChapterOutline, GeneratedThumbnailIdea, TitleDescriptionPackage } from "../types";
+import { OUTLINES_PROMPT_TEMPLATE, HOOK_PROMPT_TEMPLATE, CHAPTER_BATCH_PROMPT_TEMPLATE, POST_GENERATION_ASSETS_PROMPT_TEMPLATE, THUMBNAIL_IDEAS_PROMPT_TEMPLATE } from "../constants";
+import { callGeminiApi } from "./apiService";
 
 // Helper to extract JSON from a string, removing markdown fences if they exist.
 const extractJson = (text: string): string => {
@@ -60,7 +60,7 @@ export const generateChapterBatch = async (
 export const generatePostGenerationAssets = async (
   originalTitle: string,
   fullScript: string
-): Promise<{ thumbnailIdeas: ThumbnailIdeas; titleDescriptionPackages: TitleDescriptionPackage[] }> => {
+): Promise<{ titleDescriptionPackages: TitleDescriptionPackage[] }> => {
   const prompt = POST_GENERATION_ASSETS_PROMPT_TEMPLATE(originalTitle, fullScript);
   const response = await callGeminiApi({
     model: 'gemini-2.5-flash',
@@ -108,65 +108,42 @@ export const generatePostGenerationAssets = async (
   }));
 
   return {
-    thumbnailIdeas: data.thumbnail_ideas,
     titleDescriptionPackages,
   };
 };
 
-export const generateThumbnailImage = async (
-    prompt: string,
-    text?: string,
-    addText?: boolean,
-    model?: string,
-    baseImage?: string
-): Promise<string> => {
-    const activeModel = model || 'imagen-4.0-generate-001';
 
-    if (activeModel === 'imagen-4.0-generate-001') {
-        const response = await callImagenApi({
-            model: 'imagen-4.0-generate-001',
-            prompt: prompt,
-            config: {
-                numberOfImages: 1,
-                outputMimeType: 'image/jpeg',
-                aspectRatio: '16:9',
-            },
-        });
-        if (!response.generatedImages || response.generatedImages.length === 0) {
-            throw new Error("Imagen API did not return an image.");
-        }
-        return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
-
-    } else { // 'gemini-2.5-flash-image-preview'
-        const parts: any[] = [];
-        if (baseImage) {
-             // strip base64 prefix
-            const base64Data = baseImage.substring(baseImage.indexOf(',') + 1);
-            const mimeType = baseImage.substring(baseImage.indexOf(':') + 1, baseImage.indexOf(';'));
-            parts.push({
-                inlineData: {
-                    data: base64Data,
-                    mimeType: mimeType,
-                },
-            });
-        }
-        parts.push({ text: prompt });
-        if (addText && text) {
-            parts.push({ text: `Please add the following text to the image, stylized for a YouTube thumbnail: "${text}"`});
-        }
-        
-        const response = await callGeminiApi({
-            model: 'gemini-2.5-flash-image-preview',
-            contents: { parts: parts },
-            config: {
-                responseModalities: [Modality.IMAGE, Modality.TEXT],
-            },
-        });
-
-        const imagePart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-        if (imagePart && imagePart.inlineData) {
-            return `data:image/png;base64,${imagePart.inlineData.data}`;
-        }
-        throw new Error("The model did not return an image.");
+export const generateThumbnailIdeas = async (
+  title: string,
+  hook: string
+): Promise<GeneratedThumbnailIdea[]> => {
+  const prompt = THUMBNAIL_IDEAS_PROMPT_TEMPLATE(title, hook);
+  const response = await callGeminiApi({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
     }
+  });
+
+  const jsonText = extractJson(response.text);
+  const data = JSON.parse(jsonText);
+
+  if (!data.ideas || !Array.isArray(data.ideas)) {
+    throw new Error("AI response for thumbnail ideas is missing 'ideas' array or is in the wrong format.");
+  }
+
+  // Basic validation that we got what we expected
+  const ideas: GeneratedThumbnailIdea[] = data.ideas.map((idea: any) => {
+    if (!idea.summary || !idea.textOverlay || !idea.imageGenerationPrompt) {
+      throw new Error("Received thumbnail idea object is missing required fields (summary, textOverlay, imageGenerationPrompt).");
+    }
+    return {
+      summary: idea.summary,
+      textOverlay: idea.textOverlay,
+      imageGenerationPrompt: idea.imageGenerationPrompt,
+    };
+  });
+
+  return ideas;
 };
