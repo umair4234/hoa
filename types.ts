@@ -19,7 +19,7 @@ export enum GenerationStatus {
 }
 
 // New types for Library
-export type AppView = 'WORKSPACE' | 'LIBRARY' | 'SPLITTER';
+export type AppView = 'WORKSPACE' | 'LIBRARY' | 'SPLITTER' | 'THUMBNAIL';
 
 export type JobStatus = 'WRITING' | 'PAUSED' | 'DONE' | 'FAILED';
 
@@ -70,4 +70,7 @@ export interface ScriptJob {
   maxCharsPerSection?: number;
   // User-defined status
   userStatus?: 'WORKING';
+  // New properties for background asset generation
+  isGeneratingThumbnails?: boolean;
+  isGeneratingTitles?: boolean;
 }

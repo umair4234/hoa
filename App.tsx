@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Button from './components/Button';
 import ApiKeyManager from './components/ApiKeyManager';
@@ -13,6 +15,7 @@ import ThumbnailIdeasViewerModal from './components/ThumbnailIdeasModal';
 import Loader from './components/Loader';
 import ScriptSplitter from './components/ScriptSplitter';
 import TitleDescriptionManager from './components/TitleDescriptionManager';
+import ThumbnailGeneratorView from './components/ThumbnailGeneratorView';
 
 
 import { 
@@ -33,7 +36,8 @@ import {
   AppView, 
   JobStatus, 
   TitleDescriptionPackage,
-  LibraryStatus
+  LibraryStatus,
+  GeneratedThumbnailIdea
 } from './types';
 
 // Helper to create a simple unique ID
@@ -241,6 +245,7 @@ const App: React.FC = () => {
     if (!job || !job.hook) return;
 
     setIsPostGenAssetsLoading(true);
+    updateJob(job.id, { isGeneratingTitles: true });
     try {
         const fullScript = `${job.hook}\n\n${job.chaptersContent.join('\n\n')}`;
         const { titleDescriptionPackages } = await generatePostGenerationAssets(job.title, fullScript);
@@ -254,6 +259,7 @@ const App: React.FC = () => {
         alert('Failed to generate titles and descriptions.');
     } finally {
         setIsPostGenAssetsLoading(false);
+        updateJob(job.id, { isGeneratingTitles: false });
     }
   }, [selectedJobId, updateJob]);
 
@@ -353,8 +359,17 @@ const App: React.FC = () => {
         setGenerationStatus(GenerationStatus.DONE);
         generationStatusRef.current = GenerationStatus.DONE;
         
-        // Automatically generate titles & descriptions on completion
-        handleGeneratePostGenerationAssets(jobId, false);
+        // --- NEW: Automatically generate assets in the background ---
+        updateJob(jobId, { isGeneratingThumbnails: true, isGeneratingTitles: true });
+
+        // Run post-gen tasks in background without awaiting them
+        handleGeneratePostGenerationAssets(jobId, false)
+          .catch(e => console.error(`Auto-generation of titles for job ${jobId} failed:`, e))
+          .finally(() => updateJob(jobId, { isGeneratingTitles: false }));
+        
+        handleGetThumbnailIdeas(jobId, false, false)
+          .catch(e => console.error(`Auto-generation of thumbnails for job ${jobId} failed:`, e))
+          .finally(() => updateJob(jobId, { isGeneratingThumbnails: false }));
 
     } catch (error: any) {
         console.error("Script generation failed:", error);
@@ -439,27 +454,35 @@ const App: React.FC = () => {
     setView('SPLITTER');
   };
   
-  const handleGetThumbnailIdeas = useCallback(async (forceRegenerate = false) => {
-    if (!selectedJob || !selectedJob.hook) return;
+  const handleGetThumbnailIdeas = useCallback(async (jobIdToProcess?: string, forceRegenerate = false, openModal = true) => {
+    const job = jobsRef.current.find(j => j.id === (jobIdToProcess || selectedJobId));
+    if (!job || !job.hook) return;
 
-    if (selectedJob.generatedThumbnailIdeas && !forceRegenerate) {
-        setIsThumbnailIdeasViewerOpen(true);
+    if (job.generatedThumbnailIdeas && !forceRegenerate) {
+        if (openModal) setIsThumbnailIdeasViewerOpen(true);
         return;
     }
+    
+    if (openModal) {
+      setIsGeneratingThumbnailIdeas(true);
+      setIsThumbnailIdeasViewerOpen(true);
+    }
+    updateJob(job.id, { isGeneratingThumbnails: true });
 
-    setIsGeneratingThumbnailIdeas(true);
-    setIsThumbnailIdeasViewerOpen(true);
     try {
-        const ideas = await generateThumbnailIdeas(selectedJob.title, selectedJob.hook);
-        updateJob(selectedJob.id, { generatedThumbnailIdeas: ideas });
+        const ideas = await generateThumbnailIdeas(job.title, job.hook);
+        updateJob(job.id, { generatedThumbnailIdeas: ideas });
     } catch (e: any) {
         console.error('Failed to generate thumbnail ideas:', e);
-        alert(`Failed to generate thumbnail ideas: ${e.message}`);
-        setIsThumbnailIdeasViewerOpen(false);
+        if (openModal) {
+            alert(`Failed to generate thumbnail ideas: ${e.message}`);
+            setIsThumbnailIdeasViewerOpen(false);
+        }
     } finally {
-        setIsGeneratingThumbnailIdeas(false);
+        if (openModal) setIsGeneratingThumbnailIdeas(false);
+        updateJob(job.id, { isGeneratingThumbnails: false });
     }
-  }, [selectedJob, updateJob]);
+  }, [selectedJobId, updateJob]);
   
   const handleOpenTitlesModal = () => {
     if (!selectedJob?.titleDescriptionPackages || selectedJob.titleDescriptionPackages.length === 0) {
@@ -606,11 +629,25 @@ const App: React.FC = () => {
                     onSplitScript={handleSplitScript}
                   />
                     <div className="flex gap-4 mt-4">
-                      <Button onClick={() => handleGetThumbnailIdeas()} disabled={isGeneratingThumbnailIdeas}>
-                        {isGeneratingThumbnailIdeas ? 'Generating...' : 'Get Thumbnail Ideas'}
+                      <Button
+                        onClick={() => handleGetThumbnailIdeas(selectedJob.id, false, true)}
+                        disabled={selectedJob.isGeneratingThumbnails}
+                      >
+                        {selectedJob.isGeneratingThumbnails
+                          ? 'Generating...'
+                          : selectedJob.generatedThumbnailIdeas
+                          ? 'View Thumbnail Ideas'
+                          : 'Get Thumbnail Ideas'}
                       </Button>
-                      <Button onClick={handleOpenTitlesModal} disabled={isPostGenAssetsLoading}>
-                        {isPostGenAssetsLoading ? 'Generating...' : 'Titles & Descriptions'}
+                      <Button
+                        onClick={handleOpenTitlesModal}
+                        disabled={selectedJob.isGeneratingTitles}
+                      >
+                        {selectedJob.isGeneratingTitles
+                          ? 'Generating...'
+                          : selectedJob.titleDescriptionPackages && selectedJob.titleDescriptionPackages.length > 0
+                          ? 'View Titles & Descriptions'
+                          : 'Titles & Descriptions'}
                       </Button>
                   </div>
               </div>
@@ -701,6 +738,7 @@ const App: React.FC = () => {
         </div>
     </div>
   );
+  
 
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-950 text-gray-200">
@@ -712,7 +750,7 @@ const App: React.FC = () => {
           onClose={() => setIsThumbnailIdeasViewerOpen(false)}
           ideas={selectedJob.generatedThumbnailIdeas || null}
           isLoading={isGeneratingThumbnailIdeas}
-          onRegenerate={() => handleGetThumbnailIdeas(true)}
+          onRegenerate={() => handleGetThumbnailIdeas(selectedJob.id, true, true)}
         />
       )}
       {selectedJob && (
@@ -738,6 +776,7 @@ const App: React.FC = () => {
             <div className="bg-gray-800 p-1 rounded-lg flex items-center gap-1 border border-gray-700">
                 <Button variant={view === 'WORKSPACE' ? 'primary' : 'secondary'} onClick={() => setView('WORKSPACE')} className="!px-6 !py-1.5">Workspace</Button>
                 <Button variant={view === 'LIBRARY' ? 'primary' : 'secondary'} onClick={() => setView('LIBRARY')} className="!px-6 !py-1.5">Library</Button>
+                <Button variant={view === 'THUMBNAIL' ? 'primary' : 'secondary'} onClick={() => setView('THUMBNAIL')} className="!px-6 !py-1.5">Thumbnail</Button>
             </div>
         </div>
 
@@ -755,6 +794,7 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col overflow-hidden">
         {view === 'WORKSPACE' && renderWorkspaceView()}
         {view === 'LIBRARY' && renderLibraryView()}
+        {view === 'THUMBNAIL' && <ThumbnailGeneratorView />}
         {view === 'SPLITTER' && selectedJob && (
           <ScriptSplitter
             job={selectedJob}
