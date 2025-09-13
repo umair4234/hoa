@@ -40,7 +40,7 @@ export const THUMBNAIL_IDEAS_STYLE_GUIDE = `{
     "1. Analyze the title to identify the core conflict: Who is the aggressor? Who is the victim?",
     "2. Identify the 'twist' or hidden power: Is it a job (FBI, Cop)? Is it a person (Navy SEAL)? Or is it a trap?",
     "3. If the twist is a job/status reveal, select the 'Authority Reversal' archetype.",
-    "4. If the twist is a powerful person intervening, select the 'The Hidden Protector' archetype.",
+    "4. If the twist is a powerful person intervening, select 'The Hidden Protector' archetype.",
     "5. If the twist involves the antagonist's action backfiring, select the 'Smug Escalation' archetype."
   ],
   "thumbnail_variations": [
@@ -261,6 +261,13 @@ You are a world-class YouTube thumbnail strategist. Your sole mission is to gene
 2.  Use the \`decision_flow\` from the **Style Guide** to select the most appropriate \`archetype\` for the story.
 3.  Generate three unique thumbnail ideas inspired by the \`thumbnail_variations\` examples in the Style Guide.
 4.  For each idea, you must provide a summary, the text overlay, and a detailed image generation prompt.
+
+**CRITICAL STYLISTIC RULES FOR IMAGE PROMPTS:**
+You must inject these specific stylistic details into every \`imageGenerationPrompt\` you create:
+1.  **Scene & Color Fidelity:** If the scene is outdoors, explicitly state the sky is a **"clear, bright blue with no clouds"** and that grass is **"vibrant, saturated green"**. This is non-negotiable for the visual style.
+2.  **Antagonist Attire:** The primary female antagonist (the "HOA" archetype) MUST ALWAYS be described as wearing a **"prominent red outfit"** (like a red dress, red blouse, or red power suit). This is a critical visual signature.
+3.  **Emotional Intensity:** Do not use subtle emotions. Facial expressions MUST be described as **"exaggerated," "theatrical,"** and **"over-the-top"**. For example, instead of "angry," use "face contorted in a furious scream." Instead of "shocked," use "jaw dropped in theatrical disbelief."
+4.  **No Direct Violence:** To comply with safety filters while maintaining drama, DO NOT describe acts of physical violence (like slapping). Instead, capture the peak emotional confrontation. Focus on screaming, aggressive pointing, and dramatic reactions.
 
 **CRITICAL OUTPUT FORMAT:**
 Your response MUST be a single, valid JSON object. Do not include any text, markdown, or explanations outside of the JSON object. The object should contain a single key, "ideas", which is an array of three objects. Each object in the array must have the following keys:
